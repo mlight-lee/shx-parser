@@ -24,23 +24,23 @@ A TypeScript library for parsing AutoCAD SHX font files.
 
 Using npm:
 ```bash
-npm install shx-parser
+npm install @mlightcad/shx-parser
 ```
 
 Using pnpm:
 ```bash
-pnpm add shx-parser
+pnpm add @mlightcad/shx-parser
 ```
 
 Using yarn:
 ```bash
-yarn add shx-parser
+yarn add @mlightcad/shx-parser
 ```
 
 ## Quick Start
 
 ```typescript
-import { ShxFont } from 'shx-parser';
+import { ShxFont } from '@mlightcad/shx-parser';
 
 // Load the font file
 const fontFileData = /* ArrayBuffer containing SHX font file data */;
@@ -68,10 +68,10 @@ The main class for working with SHX fonts.
 
 ```typescript
 class ShxFont {
+  fontData: ShxFontData;
   constructor(data: ArrayBuffer);
   getCharShape(charCode: number, size: number): ShxShape | null;
   release(): void;
-  getFontData(): ShxFontData;
 }
 ```
 
@@ -83,8 +83,6 @@ Represents a parsed character shape.
 interface ShxShape {
   polylines: Array<{ x: number; y: number }[]>;  // Array of polyline points
   lastPoint: { x: number; y: number };           // End point of the shape
-  width: number;                                 // Width of the shape
-  height: number;                                // Height of the shape
 }
 ```
 
@@ -115,7 +113,7 @@ interface ShxFontData {
 
 ```typescript
 import { readFile } from 'fs/promises';
-import { ShxFont } from 'shx-parser';
+import { ShxFont } from '@mlightcad/shx-parser';
 
 async function loadFont(filePath: string) {
   const buffer = await readFile(filePath);
@@ -124,30 +122,56 @@ async function loadFont(filePath: string) {
 }
 ```
 
-### Rendering Text
+### Rendering Text Shape as SVG
 
 ```typescript
-function renderText(font: ShxFont, text: string, size: number) {
-  const shapes = [];
+function renderTextToSvg(font: ShxFont, text: string, size: number, options = {
+  width: 1000,
+  height: 1000,
+  scale: 40,
+  strokeWidth: 2,
+  strokeColor: 'black'
+}) {
+  // Create SVG element
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', options.width.toString());
+  svg.setAttribute('height', options.height.toString());
+  svg.setAttribute('viewBox', `0 0 ${options.width} ${options.height}`);
+
   let x = 0;
   
   for (const char of text) {
     const shape = font.getCharShape(char.charCodeAt(0), size);
     if (shape) {
-      // Translate shape to current x position
-      const translatedShape = {
-        ...shape,
-        polylines: shape.polylines.map(line =>
-          line.map(point => ({ x: point.x + x, y: point.y }))
-        )
-      };
-      shapes.push(translatedShape);
-      x += shape.width;
+      // Create path for each polyline in the shape
+      shape.polylines.forEach(polyline => {
+        let d = '';
+        polyline.forEach((point, index) => {
+          // Center the text and scale it
+          const px = (point.x + x) * options.scale + options.width / 2;
+          const py = -point.y * options.scale + options.height / 2;
+          d += index === 0 ? `M ${px} ${py} ` : `L ${px} ${py} `;
+        });
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', options.strokeColor);
+        path.setAttribute('stroke-width', options.strokeWidth.toString());
+        path.setAttribute('fill', 'none');
+        svg.appendChild(path);
+      });
+      
+      x += shape.lastPoint.x; // Move x position for next character
     }
   }
   
-  return shapes;
+  return svg;
 }
+
+// Example usage:
+const font = new ShxFont(fontFileData);
+const svgElement = renderTextToSvg(font, "Hello", 12);
+document.body.appendChild(svgElement);
 ```
 
 ## Contributing

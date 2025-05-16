@@ -5,13 +5,17 @@ export type Orientation = 'horizontal' | 'vertical';
  * Represents the type of SHX font file
  */
 export enum ShxFontType {
+  /** Standard shapes font type */
   SHAPES = 'shapes',
+  /** Big font type */
   BIGFONT = 'bigfont',
+  /** Unicode font type */
   UNIFONT = 'unifont',
 }
 
 /**
- * Represents the content of a SHX font file
+ * Represents the content of a SHX font file.
+ * Contains the actual font data and metrics.
  */
 export interface ShxFontContentData {
   /** Mapping of character codes to their bitmap data */
@@ -27,7 +31,8 @@ export interface ShxFontContentData {
 }
 
 /**
- * Represents the header of a SHX font file
+ * Represents the header information of a SHX font file.
+ * Contains metadata about the font.
  */
 export interface ShxFontHeaderData {
   /** The type of font (shapes, bigfont, or unifont) */
@@ -39,7 +44,8 @@ export interface ShxFontHeaderData {
 }
 
 /**
- * Represents the data of a SHX font file
+ * Represents the complete data structure of a SHX font file.
+ * Combines both header and content information.
  */
 export interface ShxFontData {
   /** Header data of the font file */

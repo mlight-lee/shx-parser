@@ -1,4 +1,4 @@
-import { ShxByteEncoder } from '../byteEncoder';
+import { ShxByteEncoder, ShxEncodable } from '../byteEncoder';
 
 describe('ShxByteEncoder', () => {
   describe('getBytes', () => {
@@ -43,7 +43,7 @@ describe('ShxByteEncoder', () => {
     });
 
     it('should throw error for unsupported types', () => {
-      expect(() => ShxByteEncoder.getBytes({} as any)).toThrow('Unsupported type');
+      expect(() => ShxByteEncoder.getBytes({} as ShxEncodable)).toThrow('Unsupported type');
     });
   });
 

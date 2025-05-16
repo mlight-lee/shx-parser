@@ -2,9 +2,15 @@ import { ShxFileReader } from './fileReader';
 import { ShxFontContentData, ShxFontType } from './fontData';
 
 /**
- * Parses the content of a SHX font file
+ * Interface for parsing the content section of a SHX font file.
+ * Different font types may have different parsing implementations.
  */
 export interface ShxContentParser {
+  /**
+   * Parses the content section of a SHX font file.
+   * @param reader - The file reader positioned at the start of the content section
+   * @returns The parsed font content data
+   */
   parse(reader: ShxFileReader): ShxFontContentData;
 }
 

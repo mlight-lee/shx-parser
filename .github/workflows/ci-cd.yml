@@ -10,54 +10,58 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - uses: pnpm/action-setup@v2
-      with:
-        version: 9
-    
-    # Cache node_modules
-    - uses: actions/setup-node@v3
-      with:
-        node-version: 20
-        cache: 'pnpm'
-    
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-    
-    - name: Lint
-      run: pnpm lint
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
       
-    - name: Build
-      run: pnpm build
+      # Cache node_modules
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'pnpm'
+       
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+    
+      - name: Lint
+        run: pnpm lint
+        
+      - name: Build
+        run: pnpm build
 
-    - name: Run tests
-      run: pnpm test
+      - name: Run tests
+        run: pnpm test
 
   deploy:
     needs: [ci]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-    - uses: pnpm/action-setup@v2
-      with:
-        version: 9
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      
+      # Cache node_modules
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'pnpm'
+       
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
     
-    # Cache node_modules
-    - uses: actions/setup-node@v3
-      with:
-        node-version: 20
-        cache: 'pnpm'
-    
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-    
-    - name: Build
-      run: pnpm example
-    
-    # Example deployment to GitHub Pages
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./examples # Adjust this to your build output directory 
+      - name: Build
+        run: pnpm example
+      
+      # Example deployment to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./examples # Adjust this to your build output directory 

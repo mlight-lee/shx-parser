@@ -5,8 +5,14 @@ import { ShxFontData, ShxFontType } from './fontData';
 const CIRCLE_SPAN = Math.PI / 18;
 const DEFAULT_FONT_SIZE = 12;
 
+/**
+ * Represents a shape defined by a collection of polylines and an optional last point.
+ * Used to describe the geometry of a character in the SHX font.
+ */
 export interface ShxShape {
+  /** The last point in the shape's geometry, if any */
   readonly lastPoint?: Point;
+  /** Array of polylines, where each polyline is an array of points */
   readonly polylines: Point[][];
 }
 
