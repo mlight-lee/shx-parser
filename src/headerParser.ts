@@ -9,7 +9,7 @@ export class ShxHeaderParser {
     const headerData = this.parseHeader(reader);
     const headers = headerData.split(' ');
 
-    const fontType = headers[1] as ShxFontType;
+    const fontType = headers[1].toLocaleLowerCase() as ShxFontType;
     if (!Object.values(ShxFontType).includes(fontType)) {
       throw new Error(`Invalid font type: ${fontType}`);
     }

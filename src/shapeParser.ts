@@ -76,6 +76,14 @@ export class ShxShapeParser {
     return textShape;
   }
 
+  /**
+   * Parses the shape of a character.
+   * Please refer to special codes reference in the following link for more information:
+   * https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-06832147-16BE-4A66-A6D0-3ADF98DC8228
+   * @param data - The data of the character
+   * @param scale - The scale of the font
+   * @returns The parsed shape
+   */
   private parseShape(data: Uint8Array, scale: number): ShxShape {
     const encoder = new ShxByteEncoder(data.buffer);
     let currentPoint = new Point();
@@ -87,12 +95,15 @@ export class ShxShapeParser {
     for (let i = 0; i < data.length; i++) {
       const cb = data[i];
       switch (cb) {
+        // End of shape definition
         case 0:
           break;
+        // Activate Draw mode (pen down)
         case 1:
           isPenDown = true;
           currentPolyline.push(currentPoint.clone());
           break;
+        // Deactivate Draw mode (pen up)
         case 2:
           isPenDown = false;
           if (currentPolyline.length > 1) {
@@ -103,20 +114,24 @@ export class ShxShapeParser {
             currentPoint.set(0, 0);
           }
           break;
+        // Divide vector lengths by next byte
         case 3:
           i++;
           scale /= data[i];
           break;
+        // Multiply vector lengths by next byte
         case 4:
           i++;
           scale *= data[i];
           break;
+        // Push current location onto stack
         case 5:
           if (sp.length === 4) {
-            throw 'The position stack is only four locations deep';
+            throw new Error('The position stack is only four locations deep');
           }
           sp.push(currentPoint);
           break;
+        // Pop current location from stack
         case 6:
           currentPoint = sp.pop() as Point;
           if (currentPolyline.length > 1) {
@@ -127,6 +142,7 @@ export class ShxShapeParser {
             currentPolyline.push(currentPoint.clone());
           }
           break;
+        // Draw subshape number given by next byte
         case 7:
           {
             let subCode = 0;
@@ -172,6 +188,7 @@ export class ShxShapeParser {
             }
           }
           break;
+        // X-Y displacement given by next two bytes
         case 8:
           {
             const vec = new Point();
@@ -183,6 +200,7 @@ export class ShxShapeParser {
             }
           }
           break;
+        // Multiple X-Y displacements, terminated (0,0)
         case 9:
           {
             const tmp = true;
@@ -200,6 +218,7 @@ export class ShxShapeParser {
             }
           }
           break;
+        // Octant arc defined by next two bytes
         case 10: // 0x0a
           {
             const r = data[++i] * scale;
@@ -246,6 +265,7 @@ export class ShxShapeParser {
             }
           }
           break;
+        // Fractional arc defined by next five bytes
         case 11: //0x0b
           {
             const startOffset = data[++i];
@@ -303,6 +323,7 @@ export class ShxShapeParser {
             }
           }
           break;
+        // Arc defined by X-Y displacement and bulge
         case 12: // 0x0c
           {
             const vec = new Point();
@@ -317,11 +338,13 @@ export class ShxShapeParser {
                 currentPolyline.push(currentPoint.clone().add(vec));
               } else {
                 currentPolyline.push(this.generateArcPoints(currentPoint, vec, bulge / 127.0));
+                currentPolyline.push(currentPoint.clone().add(vec));
               }
             }
             currentPoint.add(vec);
           }
           break;
+        // Multiple bulge-specified arcs
         case 13: // 0x0d
           {
             const tmp = true;
@@ -349,8 +372,9 @@ export class ShxShapeParser {
             }
           }
           break;
+        // Process next command only if vertical text
         case 14: //0x0e
-          i = this.skipCode(data, ++i, this.fontData.header.fontType);
+          i = this.skipCode(data, ++i);
           break;
         default:
           if (cb > 0x0f) {
@@ -433,7 +457,7 @@ export class ShxShapeParser {
     };
   }
 
-  private skipCode(data: Uint8Array, index: number, fontType: ShxFontType) {
+  private skipCode(data: Uint8Array, index: number) {
     const cb = data[index];
     switch (cb) {
       case 0x00:
@@ -451,7 +475,7 @@ export class ShxShapeParser {
       case 0x06:
         break;
       case 0x07:
-        switch (fontType) {
+        switch (this.fontData.header.fontType) {
           case ShxFontType.SHAPES:
             index++;
             break;
@@ -527,15 +551,15 @@ export class ShxShapeParser {
     normal.multiply(h);
 
     const radius = Math.abs(halfLength / Math.sin(radian / 2));
-    const center = start.add(distance.divide(2));
+    const center = start.clone().add(distance.clone().divide(2));
     if (isLargeAngle !== isClockwise) {
       center.add(normal);
     } else {
       center.subtract(normal);
     }
 
-    const svec = start.subtract(center);
-    const evec = end.subtract(center);
+    const svec = start.clone().subtract(center);
+    const evec = end.clone().subtract(center);
     let startRadian = Math.atan2(svec.y, svec.x);
     const endRadian = Math.atan2(evec.y, evec.x);
     let delta = CIRCLE_SPAN;

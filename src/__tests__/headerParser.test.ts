@@ -56,7 +56,7 @@ describe('ShxHeaderParser', () => {
       }
 
       const reader = new ShxFileReader(buffer);
-      expect(() => parser.parse(reader)).toThrow('Invalid font type: INVALID');
+      expect(() => parser.parse(reader)).toThrow('Invalid font type: invalid');
     });
 
     it('should handle very long header within limits', () => {

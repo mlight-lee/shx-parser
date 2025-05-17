@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "description": "A TypeScript library for parsing AutoCAD SHX font files",
   "type": "module",
-  "main": "dist/shx-parser.cjs.js",
-  "module": "dist/shx-parser.es.js",
-  "browser": "dist/shx-parser.umd.js",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.es.js",
+  "browser": "dist/index.umd.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "README.md",
+    "LICENSE",
+    "package.json",
+    "dist/*.d.ts",
+    "dist/*.js"
   ],
   "scripts": {
     "build": "vite build && tsc --emitDeclarationOnly",

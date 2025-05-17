@@ -62,14 +62,15 @@ export class ShxFileReader {
 
   /**
    * Reads an unsigned 16-bit integer.
+   * @param littleEndian If false, a big-endian value should be read.
    * @returns The read uint16 value
    * @throws Error if reading beyond buffer bounds
    */
-  readUint16(): number {
+  readUint16(littleEndian: boolean = true): number {
     if (this.data.byteLength < this.position + 2) {
       this.throwOutOfRangeError(this.position + 2);
     }
-    const result = this.data.getUint16(this.position, true);
+    const result = this.data.getUint16(this.position, littleEndian);
     this.position += 2;
     return result;
   }

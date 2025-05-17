@@ -107,7 +107,7 @@ class ShxBigfontContentParser implements ShxContentParser {
 
       const items: { code: number; length: number; offset: number }[] = [];
       for (let i = 0; i < count; i++) {
-        const code = reader.readUint16();
+        const code = reader.readUint16(false);
         const length = reader.readUint16();
         const offset = reader.readUint32();
         if (code !== 0 || length !== 0 || offset !== 0) {

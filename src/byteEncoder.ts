@@ -105,10 +105,11 @@ export class ShxByteEncoder {
   /**
    * Reads an unsigned 16-bit integer from the specified offset.
    * @param offset - The offset to read from (defaults to 0)
+   * @param littleEndian - If false, a big-endian value should be read.
    * @returns The uint16 value
    */
-  public toUint16(offset: number = 0): number {
-    return this.dataView.getUint16(offset, true);
+  public toUint16(offset: number = 0, littleEndian: boolean = true): number {
+    return this.dataView.getUint16(offset, littleEndian);
   }
 
   /**

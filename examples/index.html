@@ -287,30 +287,6 @@
                 return svg;
             }
 
-            createPathElement(vectors) {
-                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                let d = '';
-
-                vectors.forEach((vector, index) => {
-                    const x = (vector.x * this.scale) + 500;
-                    const y = (-vector.y * this.scale) + 500;
-                    
-                    if (vector.penDown) {
-                        if (index === 0 || !vectors[index - 1].penDown) {
-                            d += `M ${x} ${y} `;
-                        } else {
-                            d += `L ${x} ${y} `;
-                        }
-                    }
-                });
-
-                path.setAttribute('d', d);
-                path.setAttribute('stroke', 'black');
-                path.setAttribute('stroke-width', '2');
-                path.setAttribute('fill', 'none');
-                return path;
-            }
-
             createCharacterCell(code, shape) {
                 const cell = document.createElement('div');
                 cell.className = 'character-cell';
