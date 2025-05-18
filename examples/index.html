@@ -95,6 +95,37 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+        .search-container {
+            margin: 20px 0;
+            display: none;
+            gap: 10px;
+            align-items: center;
+            position: relative;
+        }
+        .search-input {
+            flex: 1;
+            padding: 10px;
+            padding-right: 30px;  /* Space for the clear button */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .search-clear {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            font-size: 18px;
+            color: #999;
+            display: none;
+        }
+        .search-clear:hover {
+            color: #666;
+        }
         .loading {
             display: none;
             text-align: center;
@@ -139,11 +170,17 @@
                 <div id="charCount" class="font-info-value"></div>
             </div>
         </div>
+        
+        <div class="search-container">
+            <input type="text" id="codeSearch" class="search-input" placeholder="Search by code (e.g. 65 for 'A')" />
+            <button type="button" id="searchClear" class="search-clear" aria-label="Clear search">&times;</button>
+        </div>
+
         <div id="charactersGrid" class="characters-grid"></div>
     </div>
 
     <script type="module">
-        import { ShxFont } from './dist/index.es.js';
+        import { ShxFont, ShxFontType } from './dist/index.es.js';
 
         class ShxFontViewer {
             constructor() {
@@ -152,10 +189,14 @@
                 this.fontInfoDiv = document.getElementById('fontInfo');
                 this.remoteFontSelect = document.getElementById('remoteFontSelect');
                 this.loadingDiv = document.getElementById('loading');
+                this.codeSearch = document.getElementById('codeSearch');
+                this.searchClear = document.getElementById('searchClear');
+                this.searchContainer = document.querySelector('.search-container');
                 this.font = null;
                 this.scale = 40;
                 this.fontLibraryUrl = 'https://raw.githubusercontent.com/mlight-lee/cad-data/main/fonts/fonts.json';
                 this.fontBaseUrl = 'https://raw.githubusercontent.com/mlight-lee/cad-data/main/fonts/';
+                this.allCharacterCells = new Map(); // Store all character cells
 
                 this.init();
             }
@@ -163,6 +204,9 @@
             init() {
                 this.fileInput.addEventListener('change', this.handleFileSelect.bind(this));
                 this.remoteFontSelect.addEventListener('change', this.handleRemoteFontSelect.bind(this));
+                this.codeSearch.addEventListener('input', this.handleSearch.bind(this));
+                this.codeSearch.addEventListener('input', this.toggleClearButton.bind(this));
+                this.searchClear.addEventListener('click', this.clearSearch.bind(this));
                 this.initModeTabs();
                 this.loadFontLibrary();
             }
@@ -188,7 +232,10 @@
             clearDisplay() {
                 this.grid.innerHTML = '';
                 this.fontInfoDiv.style.display = 'none';
+                this.searchContainer.style.display = 'none';
                 this.font = null;
+                this.allCharacterCells.clear();
+                this.codeSearch.value = '';
             }
 
             async loadFontLibrary() {
@@ -270,8 +317,9 @@
                 const header = fontData.header;
                 const content = fontData.content;
 
-                // Show the font info section
+                // Show the font info section and search container
                 this.fontInfoDiv.style.display = 'block';
+                this.searchContainer.style.display = 'flex';
 
                 // Update font information
                 document.getElementById('fontType').textContent = header.fontType;
@@ -322,15 +370,54 @@
 
             displayCharacters() {
                 this.grid.innerHTML = '';
+                this.allCharacterCells.clear();
                 const fontData = this.font.fontData;
 
                 Object.entries(fontData.content.data).forEach(([code, data]) => {
                     const shape = this.font.getCharShape(parseInt(code), 12);
                     if (shape) {
                         const cell = this.createCharacterCell(code, shape);
+                        this.allCharacterCells.set(code, cell);
                         this.grid.appendChild(cell);
                     }
                 });
+            }
+
+            handleSearch(event) {
+                const searchValue = event.target.value.trim();
+                const isBigFont = this.font.fontData.header.fontType === ShxFontType.BIGFONT;
+                
+                this.allCharacterCells.forEach((cell, code) => {
+                    if (searchValue === '') {
+                        cell.style.display = ''; // Show all when search is empty
+                    } else {
+                        // Try to parse as a number first
+                        const numericValue = parseInt(searchValue);
+                        if (!isNaN(numericValue)) {
+                            // If it's a valid number, compare directly with the code
+                            cell.style.display = code === numericValue.toString() ? '' : 'none';
+                        } else {
+                            if (isBigFont) {
+                                // For big fonts, don't convert to Unicode
+                                cell.style.display = 'none'; // Hide by default since we only support numeric search for big fonts
+                            } else {
+                                // For regular fonts, convert to Unicode
+                                const charCode = searchValue.charCodeAt(0);
+                                cell.style.display = code === charCode.toString() ? '' : 'none';
+                            }
+                        }
+                    }
+                });
+            }
+
+            toggleClearButton() {
+                this.searchClear.style.display = this.codeSearch.value ? 'block' : 'none';
+            }
+
+            clearSearch() {
+                this.codeSearch.value = '';
+                this.searchClear.style.display = 'none';
+                this.handleSearch({ target: this.codeSearch });
             }
         }
 
