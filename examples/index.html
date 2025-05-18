@@ -14,7 +14,7 @@
         .container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 10px;
         }
         .file-input {
             padding: 20px;
@@ -47,7 +47,6 @@
             background-color: #f5f5f5;
             padding: 20px;
             border-radius: 4px;
-            margin-bottom: 20px;
         }
         .font-info h2 {
             margin-top: 0;
@@ -67,7 +66,7 @@
         }
         .mode-selector {
             display: flex;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             border-bottom: 1px solid #ccc;
         }
         .mode-tab {
@@ -91,14 +90,13 @@
         .font-select {
             width: 100%;
             padding: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
         .search-container {
-            margin: 20px 0;
+            margin: 10px 0;
             display: none;
-            gap: 10px;
             align-items: center;
             position: relative;
         }
@@ -125,6 +123,19 @@
         }
         .search-clear:hover {
             color: #666;
+        }
+        .format-toggle {
+            display: none;  /* Hide by default */
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+        }
+        .format-toggle label {
+            cursor: pointer;
+            user-select: none;
+        }
+        .format-toggle input[type="checkbox"] {
+            margin: 0;
         }
         .loading {
             display: none;
@@ -172,8 +183,13 @@
         </div>
         
         <div class="search-container">
-            <input type="text" id="codeSearch" class="search-input" placeholder="Search by code (e.g. 65 for 'A')" />
+            <input type="text" id="codeSearch" class="search-input" placeholder="Search by code (e.g. 65 for 'A' or 0x41)" />
             <button type="button" id="searchClear" class="search-clear" aria-label="Clear search">&times;</button>
+        </div>
+
+        <div class="format-toggle">
+            <input type="checkbox" id="formatToggle">
+            <label for="formatToggle">Show codes in hexadecimal format</label>
         </div>
 
         <div id="charactersGrid" class="characters-grid"></div>
@@ -192,6 +208,8 @@
                 this.codeSearch = document.getElementById('codeSearch');
                 this.searchClear = document.getElementById('searchClear');
                 this.searchContainer = document.querySelector('.search-container');
+                this.formatToggle = document.getElementById('formatToggle');
+                this.formatToggleContainer = document.querySelector('.format-toggle');
                 this.font = null;
                 this.scale = 40;
                 this.fontLibraryUrl = 'https://raw.githubusercontent.com/mlight-lee/cad-data/main/fonts/fonts.json';
@@ -207,6 +225,7 @@
                 this.codeSearch.addEventListener('input', this.handleSearch.bind(this));
                 this.codeSearch.addEventListener('input', this.toggleClearButton.bind(this));
                 this.searchClear.addEventListener('click', this.clearSearch.bind(this));
+                this.formatToggle.addEventListener('change', () => this.updateCodeFormat());
                 this.initModeTabs();
                 this.loadFontLibrary();
             }
@@ -233,6 +252,7 @@
                 this.grid.innerHTML = '';
                 this.fontInfoDiv.style.display = 'none';
                 this.searchContainer.style.display = 'none';
+                this.formatToggleContainer.style.display = 'none';
                 this.font = null;
                 this.allCharacterCells.clear();
                 this.codeSearch.value = '';
@@ -317,9 +337,10 @@
                 const header = fontData.header;
                 const content = fontData.content;
 
-                // Show the font info section and search container
+                // Show the font info section, search container, and format toggle
                 this.fontInfoDiv.style.display = 'block';
                 this.searchContainer.style.display = 'flex';
+                this.formatToggleContainer.style.display = 'flex';
 
                 // Update font information
                 document.getElementById('fontType').textContent = header.fontType;
@@ -362,10 +383,25 @@
 
                 const info = document.createElement('div');
                 info.className = 'character-info';
-                info.textContent = `Code: ${code}`;
+                info.dataset.code = code;
+                this.updateCellFormat(info, code);
                 cell.appendChild(info);
 
                 return cell;
+            }
+
+            updateCellFormat(infoElement, code) {
+                const numCode = parseInt(code);
+                infoElement.textContent = this.formatToggle.checked ? 
+                    `Code: 0x${numCode.toString(16).toUpperCase()}` :
+                    `Code: ${code}`;
+            }
+
+            updateCodeFormat() {
+                this.allCharacterCells.forEach((cell, code) => {
+                    const info = cell.querySelector('.character-info');
+                    this.updateCellFormat(info, code);
+                });
             }
 
             displayCharacters() {
@@ -391,20 +427,23 @@
                     if (searchValue === '') {
                         cell.style.display = ''; // Show all when search is empty
                     } else {
-                        // Try to parse as a number first
-                        const numericValue = parseInt(searchValue);
-                        if (!isNaN(numericValue)) {
-                            // If it's a valid number, compare directly with the code
-                            cell.style.display = code === numericValue.toString() ? '' : 'none';
+                        let searchCode;
+                        if (searchValue.toLowerCase().startsWith('0x')) {
+                            // Handle hexadecimal input
+                            searchCode = parseInt(searchValue, 16).toString();
                         } else {
-                            if (isBigFont) {
-                                // For big fonts, don't convert to Unicode
-                                cell.style.display = 'none'; // Hide by default since we only support numeric search for big fonts
-                            } else {
-                                // For regular fonts, convert to Unicode
-                                const charCode = searchValue.charCodeAt(0);
-                                cell.style.display = code === charCode.toString() ? '' : 'none';
-                            }
+                            // Handle decimal input
+                            searchCode = parseInt(searchValue).toString();
+                        }
+
+                        if (!isNaN(parseInt(searchCode))) {
+                            cell.style.display = code === searchCode ? '' : 'none';
+                        } else if (!isBigFont) {
+                            // For regular fonts, convert to Unicode
+                            const charCode = searchValue.charCodeAt(0);
+                            cell.style.display = code === charCode.toString() ? '' : 'none';
+                        } else {
+                            cell.style.display = 'none';
                         }
                     }
                 });

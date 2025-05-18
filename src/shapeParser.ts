@@ -1,6 +1,7 @@
 import { Point } from './point';
 import { ShxByteEncoder } from './byteEncoder';
 import { ShxFontData, ShxFontType } from './fontData';
+import { Arc } from './arc';
 
 const CIRCLE_SPAN = Math.PI / 18;
 const DEFAULT_FONT_SIZE = 12;
@@ -221,48 +222,27 @@ export class ShxShapeParser {
         // Octant arc defined by next two bytes
         case 10: // 0x0a
           {
-            const r = data[++i] * scale;
+            const radius = data[++i] * scale;
             const flag = ShxByteEncoder.byteToSByte(data[++i]);
-            const n1 = (flag & 0x70) >> 4;
-            let n2 = flag & 0x07;
-            if (n2 === 0) {
-              n2 = 8;
-            }
-            const pi_4 = Math.PI / 4;
-            let span = pi_4 * n2;
-            let delta = CIRCLE_SPAN;
-            if (flag < 0) {
-              delta = -delta;
-              span = -span;
-            }
-            const startRadian = pi_4 * n1;
-            const endRadian = startRadian + span;
-            const center = currentPoint
-              .clone()
-              .subtract(new Point(Math.cos(startRadian) * r, Math.sin(startRadian) * r));
-            currentPoint = center
-              .clone()
-              .add(new Point(Math.cos(endRadian) * r, Math.sin(endRadian) * r));
+            const startOctant = (flag & 0x70) >> 4;
+            let octantCount = flag & 0x07;
+            const isClockwise = flag < 0;
+
+            const arc = Arc.fromOctant(
+              currentPoint.clone(),
+              radius,
+              startOctant,
+              octantCount,
+              isClockwise
+            );
+
             if (isPenDown) {
-              let currentRadian = startRadian;
-              const tmp = true;
-              while (tmp) {
-                currentRadian += delta;
-                if (
-                  (flag >= 0 && currentRadian < endRadian) ||
-                  (flag < 0 && currentRadian > endRadian)
-                ) {
-                  currentPolyline.push(
-                    center
-                      .clone()
-                      .add(new Point(r * Math.cos(currentRadian), r * Math.sin(currentRadian)))
-                  );
-                } else {
-                  break;
-                }
-              }
-              currentPolyline.push(currentPoint.clone());
+              const arcPoints = arc.tessellate();
+              // Add all points except the first one (since currentPoint is already in the polyline)
+              currentPolyline.push(...arcPoints.slice(1));
             }
+            // Update current point to the end of the arc
+            currentPoint = arc.tessellate().pop() as Point;
           }
           break;
         // Fractional arc defined by next five bytes
@@ -327,21 +307,17 @@ export class ShxShapeParser {
         case 12: // 0x0c
           {
             const vec = new Point();
-            vec.x = ShxByteEncoder.byteToSByte(data[++i]) * scale;
-            vec.y = ShxByteEncoder.byteToSByte(data[++i]) * scale;
-            let bulge = ShxByteEncoder.byteToSByte(data[++i]);
-            if (bulge < -127) {
-              bulge = -127;
-            }
-            if (isPenDown) {
-              if (bulge === 0) {
-                currentPolyline.push(currentPoint.clone().add(vec));
-              } else {
-                currentPolyline.push(this.generateArcPoints(currentPoint, vec, bulge / 127.0));
-                currentPolyline.push(currentPoint.clone().add(vec));
-              }
-            }
-            currentPoint.add(vec);
+            vec.x = ShxByteEncoder.byteToSByte(data[++i]);
+            vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+            const bulge = ShxByteEncoder.byteToSByte(data[++i]);
+            currentPoint = this.handleArcSegment(
+              currentPoint,
+              vec,
+              bulge,
+              scale,
+              isPenDown,
+              currentPolyline
+            );
           }
           break;
         // Multiple bulge-specified arcs
@@ -350,25 +326,20 @@ export class ShxShapeParser {
             const tmp = true;
             while (tmp) {
               const vec = new Point();
-              vec.x = ShxByteEncoder.byteToSByte(data[++i]) * scale;
-              vec.y = ShxByteEncoder.byteToSByte(data[++i]) * scale;
+              vec.x = ShxByteEncoder.byteToSByte(data[++i]);
+              vec.y = ShxByteEncoder.byteToSByte(data[++i]);
               if (vec.x === 0 && vec.y === 0) {
                 break;
               }
-              let bulge = ShxByteEncoder.byteToSByte(data[++i]);
-              if (bulge < -127) {
-                bulge = -127;
-              }
-              if (isPenDown) {
-                if (bulge === 0) {
-                  currentPolyline.push(currentPoint.clone().add(vec));
-                } else {
-                  currentPolyline.push(
-                    this.generateArcPoints(currentPoint.clone(), vec, bulge / 127.0)
-                  );
-                }
-              }
-              currentPoint.add(vec);
+              const bulge = ShxByteEncoder.byteToSByte(data[++i]);
+              currentPoint = this.handleArcSegment(
+                currentPoint,
+                vec,
+                bulge,
+                scale,
+                isPenDown,
+                currentPolyline
+              );
             }
           }
           break;
@@ -538,59 +509,6 @@ export class ShxShapeParser {
     return index;
   }
 
-  private generateArcPoints(start: Point, distance: Point, bulge: number) {
-    const end = start.clone().add(distance);
-    const isClockwise = bulge < 0;
-    const isLargeAngle = false;
-    bulge = Math.abs(bulge);
-    const halfLength = distance.length() / 2;
-    const h = halfLength * bulge;
-    const radian = 2 * Math.atan(1 / bulge);
-    const normal = new Point(distance.y, -distance.x);
-    normal.normalize();
-    normal.multiply(h);
-
-    const radius = Math.abs(halfLength / Math.sin(radian / 2));
-    const center = start.clone().add(distance.clone().divide(2));
-    if (isLargeAngle !== isClockwise) {
-      center.add(normal);
-    } else {
-      center.subtract(normal);
-    }
-
-    const svec = start.clone().subtract(center);
-    const evec = end.clone().subtract(center);
-    let startRadian = Math.atan2(svec.y, svec.x);
-    const endRadian = Math.atan2(evec.y, evec.x);
-    let delta = CIRCLE_SPAN;
-    if (isClockwise) {
-      delta = -delta;
-      if (startRadian < endRadian) {
-        startRadian += 2 * Math.PI;
-      }
-    } else {
-      if (startRadian > endRadian) {
-        startRadian -= 2 * Math.PI;
-      }
-    }
-    let currentRadian = startRadian;
-    const tmp = true;
-    while (tmp) {
-      currentRadian += delta;
-      if (
-        (!isClockwise && currentRadian < endRadian) ||
-        (isClockwise && currentRadian > endRadian)
-      ) {
-        return center.add(
-          new Point(radius * Math.cos(currentRadian), radius * Math.sin(currentRadian))
-        );
-      } else {
-        break;
-      }
-    }
-    return end;
-  }
-
   private getShapeByCodeWithOffset(
     code: number,
     size: number,
@@ -604,5 +522,50 @@ export class ShxShapeParser {
       };
     }
     return undefined;
+  }
+
+  /**
+   * Handles drawing an arc segment with the given vector and bulge
+   * @param currentPoint The starting point of the arc
+   * @param vec The displacement vector
+   * @param bulge The bulge value (will be normalized by 127.0)
+   * @param scale The current scale factor
+   * @param isPenDown Whether the pen is currently down (drawing)
+   * @param currentPolyline The current polyline being built
+   * @returns The new current point after the arc
+   */
+  private handleArcSegment(
+    currentPoint: Point,
+    vec: Point,
+    bulge: number,
+    scale: number,
+    isPenDown: boolean,
+    currentPolyline: Point[]
+  ): Point {
+    // Apply scale to vector
+    vec.x *= scale;
+    vec.y *= scale;
+
+    // Clamp bulge value
+    if (bulge < -127) {
+      bulge = -127;
+    }
+
+    // Update current point position
+    const newPoint = currentPoint.clone();
+    if (isPenDown) {
+      if (bulge === 0) {
+        currentPolyline.push(newPoint.clone().add(vec));
+      } else {
+        // Create arc and get tessellated points
+        const end = newPoint.clone().add(vec);
+        const arc = Arc.fromBulge(newPoint, end, bulge / 127.0);
+        const arcPoints = arc.tessellate();
+        // Add all points except the first one (since currentPoint is already in the polyline)
+        currentPolyline.push(...arcPoints.slice(1));
+      }
+    }
+    newPoint.add(vec);
+    return newPoint;
   }
 }
