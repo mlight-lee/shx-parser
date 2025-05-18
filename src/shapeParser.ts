@@ -227,9 +227,18 @@ export class ShxShapeParser {
             const startOctant = (flag & 0x70) >> 4;
             let octantCount = flag & 0x07;
             const isClockwise = flag < 0;
+            const startRadian = (Math.PI / 4) * startOctant
+            const center = currentPoint
+              .clone()
+              .subtract(
+                new Point(
+                  Math.cos(startRadian) * radius,
+                  Math.sin(startRadian) * radius
+                )
+              )
 
             const arc = Arc.fromOctant(
-              currentPoint.clone(),
+              center,
               radius,
               startOctant,
               octantCount,
@@ -238,11 +247,13 @@ export class ShxShapeParser {
 
             if (isPenDown) {
               const arcPoints = arc.tessellate();
-              // Add all points except the first one (since currentPoint is already in the polyline)
-              currentPolyline.push(...arcPoints.slice(1));
+              // Remove the last point from the current polyline. 
+              // It look like that the current point should not be included for octant arc.
+              currentPolyline.pop();
+              currentPolyline.push(...arcPoints.slice());
             }
             // Update current point to the end of the arc
-            currentPoint = arc.tessellate().pop() as Point;
+            currentPoint = arc.tessellate().pop()?.clone() as Point;
           }
           break;
         // Fractional arc defined by next five bytes

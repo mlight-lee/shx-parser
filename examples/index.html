@@ -33,6 +33,12 @@
             padding: 10px;
             text-align: center;
             border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out;
+        }
+        .character-cell:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .character-cell svg {
             max-width: 100%;
@@ -142,6 +148,56 @@
             text-align: center;
             padding: 20px;
         }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            max-height: 90%;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 5px;
+        }
+
+        .modal-close:hover {
+            color: #666;
+        }
+
+        .modal svg {
+            width: 500px;
+            height: 500px;
+        }
+
+        .modal-character-info {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 16px;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -195,6 +251,15 @@
         <div id="charactersGrid" class="characters-grid"></div>
     </div>
 
+    <!-- Modal for larger shape display -->
+    <div id="shapeModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close">&times;</button>
+            <div id="modalShape"></div>
+            <div id="modalCharacterInfo" class="modal-character-info"></div>
+        </div>
+    </div>
+
     <script type="module">
         import { ShxFont, ShxFontType } from './dist/index.es.js';
 
@@ -210,8 +275,13 @@
                 this.searchContainer = document.querySelector('.search-container');
                 this.formatToggle = document.getElementById('formatToggle');
                 this.formatToggleContainer = document.querySelector('.format-toggle');
+                this.modal = document.getElementById('shapeModal');
+                this.modalClose = document.querySelector('.modal-close');
+                this.modalShape = document.getElementById('modalShape');
+                this.modalCharacterInfo = document.getElementById('modalCharacterInfo');
                 this.font = null;
                 this.scale = 40;
+                this.modalScale = 100; // Larger scale for modal view
                 this.fontLibraryUrl = 'https://raw.githubusercontent.com/mlight-lee/cad-data/main/fonts/fonts.json';
                 this.fontBaseUrl = 'https://raw.githubusercontent.com/mlight-lee/cad-data/main/fonts/';
                 this.allCharacterCells = new Map(); // Store all character cells
@@ -227,6 +297,7 @@
                 this.searchClear.addEventListener('click', this.clearSearch.bind(this));
                 this.formatToggle.addEventListener('change', () => this.updateCodeFormat());
                 this.initModeTabs();
+                this.initModal();
                 this.loadFontLibrary();
             }
 
@@ -387,6 +458,9 @@
                 this.updateCellFormat(info, code);
                 cell.appendChild(info);
 
+                // Add click handler to show modal
+                cell.addEventListener('click', () => this.showModal(code, shape));
+
                 return cell;
             }
 
@@ -457,6 +531,102 @@
                 this.codeSearch.value = '';
                 this.searchClear.style.display = 'none';
                 this.handleSearch({ target: this.codeSearch });
+            }
+
+            initModal() {
+                // Close modal when clicking the close button
+                this.modalClose.addEventListener('click', () => {
+                    this.modal.style.display = 'none';
+                });
+
+                // Close modal when clicking outside the modal content
+                this.modal.addEventListener('click', (e) => {
+                    if (e.target === this.modal) {
+                        this.modal.style.display = 'none';
+                    }
+                });
+
+                // Close modal with Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.modal.style.display === 'flex') {
+                        this.modal.style.display = 'none';
+                    }
+                });
+            }
+
+            showModal(code, shape) {
+                this.modalShape.innerHTML = '';
+                
+                // Calculate the bounds of the shape
+                let minX = Infinity, maxX = -Infinity;
+                let minY = Infinity, maxY = -Infinity;
+                
+                shape.polylines.forEach(polyline => {
+                    polyline.forEach(point => {
+                        minX = Math.min(minX, point.x);
+                        maxX = Math.max(maxX, point.x);
+                        minY = Math.min(minY, point.y);
+                        maxY = Math.max(maxY, point.y);
+                    });
+                });
+                
+                // Add padding to the bounds
+                const padding = 0.2; // 20% padding
+                const width = maxX - minX;
+                const height = maxY - minY;
+                minX -= width * padding;
+                maxX += width * padding;
+                minY -= height * padding;
+                maxY += height * padding;
+                
+                // Calculate the aspect ratio to maintain shape proportions
+                const shapeWidth = maxX - minX;
+                const shapeHeight = maxY - minY;
+                const aspectRatio = shapeWidth / shapeHeight;
+                
+                // Create SVG with proper viewBox
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '500');
+                svg.setAttribute('height', '500');
+                
+                // Set viewBox to match shape bounds
+                const viewBoxWidth = shapeWidth;
+                const viewBoxHeight = shapeHeight;
+                const viewBoxX = minX;
+                const viewBoxY = -maxY; // Flip Y coordinates for SVG coordinate system
+                svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+                
+                // Add preserveAspectRatio attribute to ensure proper centering
+                svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                
+                // Create a path for each polyline
+                shape.polylines.forEach(polyline => {
+                    let d = '';
+                    polyline.forEach((point, index) => {
+                        // No need to add offsets since we're using viewBox
+                        const x = point.x;
+                        const y = -point.y; // Flip Y coordinates for SVG coordinate system
+                        d += index === 0 ? `M ${x} ${y} ` : `L ${x} ${y} `;
+                    });
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', d);
+                    path.setAttribute('stroke', 'black');
+                    path.setAttribute('stroke-width', viewBoxWidth * 0.005); // Make stroke width relative to shape size
+                    path.setAttribute('fill', 'none');
+                    svg.appendChild(path);
+                });
+
+                this.modalShape.appendChild(svg);
+                
+                // Update modal character info
+                const numCode = parseInt(code);
+                this.modalCharacterInfo.textContent = this.formatToggle.checked ? 
+                    `Character Code: 0x${numCode.toString(16).toUpperCase()}` :
+                    `Character Code: ${code}`;
+
+                // Show modal
+                this.modal.style.display = 'flex';
             }
         }
 
