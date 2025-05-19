@@ -98,6 +98,10 @@ export class ShxShapeParser {
       switch (cb) {
         // End of shape definition
         case 0:
+          // Reset state when shape ends
+          currentPoint = new Point();
+          currentPolyline = [];
+          isPenDown = false;
           break;
         // Activate Draw mode (pen down)
         case 1:
@@ -109,11 +113,8 @@ export class ShxShapeParser {
           isPenDown = false;
           if (currentPolyline.length > 1) {
             polylines.push(currentPolyline.slice());
-            currentPolyline = [];
-          } else {
-            // do this to fix a char position bug for romans.shx
-            currentPoint.set(0, 0);
           }
+          currentPolyline = [];
           break;
         // Divide vector lengths by next byte
         case 3:
@@ -130,18 +131,11 @@ export class ShxShapeParser {
           if (sp.length === 4) {
             throw new Error('The position stack is only four locations deep');
           }
-          sp.push(currentPoint);
+          sp.push(currentPoint.clone());
           break;
         // Pop current location from stack
         case 6:
           currentPoint = sp.pop() as Point;
-          if (currentPolyline.length > 1) {
-            polylines.push(currentPolyline.slice());
-            currentPolyline = [];
-          }
-          if (isPenDown) {
-            currentPolyline.push(currentPoint.clone());
-          }
           break;
         // Draw subshape number given by next byte
         case 7:
@@ -184,9 +178,17 @@ export class ShxShapeParser {
               shape = this.getShapeByCodeWithOffset(subCode, size, origin);
               if (shape) {
                 polylines.push(...shape.polylines.slice());
-                currentPoint = shape.lastPoint?.clone() ?? new Point();
+                // Set currentPoint to the subshape's lastPoint (with offset) if it exists, or to (0,0)
+                if (shape.lastPoint) {
+                  currentPoint = shape.lastPoint.clone();
+                } else {
+                  currentPoint = new Point();
+                }
               }
             }
+            // When the subshape is complete, reset the state
+            currentPolyline = [];
+            isPenDown = false;
           }
           break;
         // X-Y displacement given by next two bytes
