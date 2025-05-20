@@ -78,8 +78,6 @@ export class ShxShapeParser {
 
   /**
    * Parses the shape of a character.
-   * Please refer to special codes reference in the following link for more information:
-   * https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-06832147-16BE-4A66-A6D0-3ADF98DC8228
    * @param data - The data of the character
    * @param scale - The scale of the font
    * @returns The parsed shape
@@ -89,343 +87,474 @@ export class ShxShapeParser {
     let currentPoint = new Point();
     const polylines: Point[][] = [];
     let currentPolyline: Point[] = [];
-    const sp = [];
+    const sp: Point[] = [];
     let isPenDown = false;
+
+    const state = {
+      currentPoint,
+      polylines,
+      currentPolyline,
+      sp,
+      isPenDown,
+      scale,
+      encoder
+    };
 
     for (let i = 0; i < data.length; i++) {
       const cb = data[i];
-      switch (cb) {
-        // End of shape definition
-        case 0:
-          // Reset state when shape ends, but currentPoint should not be reseted
-          currentPolyline = [];
-          isPenDown = false;
-          break;
-        // Activate Draw mode (pen down)
-        case 1:
-          isPenDown = true;
-          currentPolyline.push(currentPoint.clone());
-          break;
-        // Deactivate Draw mode (pen up)
-        case 2:
-          isPenDown = false;
-          if (currentPolyline.length > 1) {
-            polylines.push(currentPolyline.slice());
-          }
-          currentPolyline = [];
-          break;
-        // Divide vector lengths by next byte
-        case 3:
-          i++;
-          scale /= data[i];
-          break;
-        // Multiply vector lengths by next byte
-        case 4:
-          i++;
-          scale *= data[i];
-          break;
-        // Push current location onto stack
-        case 5:
-          if (sp.length === 4) {
-            throw new Error('The position stack is only four locations deep');
-          }
-          sp.push(currentPoint.clone());
-          break;
-        // Pop current location from stack
-        case 6:
-          currentPoint = sp.pop() as Point;
-          break;
-        // Draw subshape number given by next byte
-        case 7:
-          {
-            let subCode = 0;
-            let shape;
-            let size = scale * this.fontData.content.baseUp;
-            const origin = currentPoint.clone();
-            if (currentPolyline.length > 1) {
-              polylines.push(currentPolyline.slice());
-              currentPolyline = [];
-            }
-            switch (this.fontData.header.fontType) {
-              case ShxFontType.SHAPES:
-                i++;
-                subCode = data[i];
-                break;
-              case ShxFontType.BIGFONT:
-                i++;
-                subCode = data[i];
-                if (subCode === 0) {
-                  i++;
-                  subCode = encoder.toUint16(i);
-                  i += 2;
-                  origin.x = data[i++] * scale;
-                  origin.y = data[i++] * scale;
-                  // const width = data[i++] * scale;
-                  const height = data[i] * scale;
-                  size = height;
-                }
-                break;
-              case ShxFontType.UNIFONT:
-                i += 2;
-                subCode = encoder.toUint16(i - 1);
-                break;
-              default:
-                break;
-            }
-            if (subCode !== 0) {
-              shape = this.getShapeByCodeWithOffset(subCode, size, origin);
-              if (shape) {
-                polylines.push(...shape.polylines.slice());
-                // Set currentPoint to the subshape's lastPoint (with offset) if it exists, or to origin
-                if (shape.lastPoint) {
-                  currentPoint = shape.lastPoint.clone();
-                } else {
-                  currentPoint = origin.clone();
-                }
-              }
-            }
-            // When the subshape is complete, reset the state
-            currentPolyline = [];
-            isPenDown = false;
-          }
-          break;
-        // X-Y displacement given by next two bytes
-        case 8:
-          {
-            const vec = new Point();
-            vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-            vec.y = ShxByteEncoder.byteToSByte(data[++i]);
-            currentPoint.add(vec.multiply(scale));
-            if (isPenDown) {
-              currentPolyline.push(currentPoint.clone());
-            }
-          }
-          break;
-        // Multiple X-Y displacements, terminated (0,0)
-        case 9:
-          {
-            const tmp = true;
-            while (tmp) {
-              const vec = new Point();
-              vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-              vec.y = ShxByteEncoder.byteToSByte(data[++i]);
-              if (vec.x === 0 && vec.y === 0) {
-                break;
-              }
-              currentPoint.add(vec.multiply(scale));
-              if (isPenDown) {
-                currentPolyline.push(currentPoint.clone());
-              }
-            }
-          }
-          break;
-        // Octant arc defined by next two bytes
-        case 10: // 0x0a
-          {
-            const radius = data[++i] * scale;
-            const flag = ShxByteEncoder.byteToSByte(data[++i]);
-            const startOctant = (flag & 0x70) >> 4;
-            let octantCount = flag & 0x07;
-            const isClockwise = flag < 0;
-            const startRadian = (Math.PI / 4) * startOctant;
-            const center = currentPoint
-              .clone()
-              .subtract(new Point(Math.cos(startRadian) * radius, Math.sin(startRadian) * radius));
-
-            const arc = Arc.fromOctant(center, radius, startOctant, octantCount, isClockwise);
-
-            if (isPenDown) {
-              const arcPoints = arc.tessellate();
-              // Remove the last point from the current polyline.
-              // It look like that the current point should not be included for octant arc.
-              currentPolyline.pop();
-              currentPolyline.push(...arcPoints.slice());
-            }
-            // Update current point to the end of the arc
-            currentPoint = arc.tessellate().pop()?.clone() as Point;
-          }
-          break;
-        // Fractional arc defined by next five bytes
-        case 11: //0x0b
-          {
-            const startOffset = data[++i];
-            const endOffset = data[++i];
-            const hr = data[++i];
-            const lr = data[++i];
-            const r = (hr * 255 + lr) * scale;
-            const flag = ShxByteEncoder.byteToSByte(data[++i]);
-            const n1 = (flag & 0x70) >> 4;
-            let n2 = flag & 0x07;
-            if (n2 === 0) {
-              n2 = 8;
-            }
-            if (endOffset !== 0) {
-              n2--;
-            }
-            const pi_4 = Math.PI / 4;
-            let span = pi_4 * n2;
-            let delta = CIRCLE_SPAN;
-            let sign = 1;
-            if (flag < 0) {
-              delta = -delta;
-              span = -span;
-              sign = -1;
-            }
-            let startRadian = pi_4 * n1;
-            let endRadian = startRadian + span;
-            startRadian += ((pi_4 * startOffset) / 256) * sign;
-            endRadian += ((pi_4 * endOffset) / 256) * sign;
-            const center = currentPoint
-              .clone()
-              .subtract(new Point(r * Math.cos(startRadian), r * Math.sin(startRadian)));
-            currentPoint = center
-              .clone()
-              .add(new Point(r * Math.cos(endRadian), r * Math.sin(endRadian)));
-            if (isPenDown) {
-              let currentRadian = startRadian;
-              const tmp = true;
-              while (tmp) {
-                currentRadian += delta;
-                if (
-                  (flag > 0 && currentRadian < endRadian) ||
-                  (flag < 0 && currentRadian > endRadian)
-                ) {
-                  currentPolyline.push(
-                    center
-                      .clone()
-                      .add(new Point(r * Math.cos(currentRadian), r * Math.sin(currentRadian)))
-                  );
-                } else {
-                  break;
-                }
-              }
-              currentPolyline.push(currentPoint.clone());
-            }
-          }
-          break;
-        // Arc defined by X-Y displacement and bulge
-        case 12: // 0x0c
-          {
-            const vec = new Point();
-            vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-            vec.y = ShxByteEncoder.byteToSByte(data[++i]);
-            const bulge = ShxByteEncoder.byteToSByte(data[++i]);
-            currentPoint = this.handleArcSegment(
-              currentPoint,
-              vec,
-              bulge,
-              scale,
-              isPenDown,
-              currentPolyline
-            );
-          }
-          break;
-        // Multiple bulge-specified arcs
-        case 13: // 0x0d
-          {
-            const tmp = true;
-            while (tmp) {
-              const vec = new Point();
-              vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-              vec.y = ShxByteEncoder.byteToSByte(data[++i]);
-              if (vec.x === 0 && vec.y === 0) {
-                break;
-              }
-              const bulge = ShxByteEncoder.byteToSByte(data[++i]);
-              currentPoint = this.handleArcSegment(
-                currentPoint,
-                vec,
-                bulge,
-                scale,
-                isPenDown,
-                currentPolyline
-              );
-            }
-          }
-          break;
-        // Process next command only if vertical text
-        case 14: //0x0e
-          i = this.skipCode(data, ++i);
-          break;
-        default:
-          if (cb > 0x0f) {
-            const len = (cb & 0xf0) >> 4;
-            const dir = cb & 0x0f;
-            const vec = new Point();
-            switch (dir) {
-              case 0:
-                vec.x = 1;
-                break;
-              case 1:
-                vec.x = 1;
-                vec.y = 0.5;
-                break;
-              case 2:
-                vec.x = 1;
-                vec.y = 1;
-                break;
-              case 3:
-                vec.x = 0.5;
-                vec.y = 1;
-                break;
-              case 4:
-                vec.y = 1;
-                break;
-              case 5:
-                vec.x = -0.5;
-                vec.y = 1;
-                break;
-              case 6:
-                vec.x = -1;
-                vec.y = 1;
-                break;
-              case 7:
-                vec.x = -1;
-                vec.y = 0.5;
-                break;
-              case 8:
-                vec.x = -1;
-                break;
-              case 9:
-                vec.x = -1;
-                vec.y = -0.5;
-                break;
-              case 10:
-                vec.x = -1;
-                vec.y = -1;
-                break;
-              case 11:
-                vec.x = -0.5;
-                vec.y = -1;
-                break;
-              case 12:
-                vec.y = -1;
-                break;
-              case 13:
-                vec.x = 0.5;
-                vec.y = -1;
-                break;
-              case 14:
-                vec.x = 1;
-                vec.y = -1;
-                break;
-              case 15:
-                vec.x = 1;
-                vec.y = -0.5;
-                break;
-            }
-            currentPoint.add(vec.multiply(len * scale));
-            if (isPenDown) {
-              currentPolyline.push(currentPoint.clone());
-            }
-          }
-          break;
+      
+      if (cb <= 0x0f) {
+        i = this.handleSpecialCommand(cb, data, i, state);
+      } else {
+        this.handleVectorCommand(cb, state);
       }
     }
+
     return {
-      lastPoint: currentPoint,
-      polylines,
+      lastPoint: state.currentPoint,
+      polylines: state.polylines,
     };
+  }
+
+  /**
+   * Please refer to special codes reference in the following link for more information.
+   * https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-06832147-16BE-4A66-A6D0-3ADF98DC8228
+   * @param command - The command byte
+   * @param data - The data of the character
+   * @param index - The index of the command byte
+   * @param state - The state of the parser
+   * @returns The index of the next command byte
+   */
+  private handleSpecialCommand(
+    command: number,
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      polylines: Point[][];
+      currentPolyline: Point[];
+      sp: Point[];
+      isPenDown: boolean;
+      scale: number;
+      encoder: ShxByteEncoder;
+    }
+  ): number {
+    let i = index;
+
+    switch (command) {
+      case 0: // End of shape definition
+        state.currentPolyline = [];
+        state.isPenDown = false;
+        break;
+      case 1: // Activate Draw mode (pen down)
+        state.isPenDown = true;
+        state.currentPolyline.push(state.currentPoint.clone());
+        break;
+      case 2: // Deactivate Draw mode (pen up)
+        state.isPenDown = false;
+        if (state.currentPolyline.length > 1) {
+          state.polylines.push(state.currentPolyline.slice());
+        }
+        state.currentPolyline = [];
+        break;
+      case 3: // Divide vector lengths
+        i++;
+        state.scale /= data[i];
+        break;
+      case 4: // Multiply vector lengths
+        i++;
+        state.scale *= data[i];
+        break;
+      case 5: // Push current location
+        if (state.sp.length === 4) {
+          throw new Error('The position stack is only four locations deep');
+        }
+        state.sp.push(state.currentPoint.clone());
+        break;
+      case 6: // Pop current location
+        state.currentPoint = state.sp.pop() as Point;
+        break;
+      case 7: // Draw subshape
+        i = this.handleSubshapeCommand(data, i, state);
+        break;
+      case 8: // X-Y displacement
+        i = this.handleXYDisplacement(data, i, state);
+        break;
+      case 9: // Multiple X-Y displacements
+        i = this.handleMultipleXYDisplacements(data, i, state);
+        break;
+      case 10: // Octant arc
+        i = this.handleOctantArc(data, i, state);
+        break;
+      case 11: // Fractional arc
+        i = this.handleFractionalArc(data, i, state);
+        break;
+      case 12: // Arc with bulge
+        i = this.handleBulgeArc(data, i, state);
+        break;
+      case 13: // Multiple bulge arcs
+        i = this.handleMultipleBulgeArcs(data, i, state);
+        break;
+      case 14: // Vertical text
+        i = this.skipCode(data, ++i);
+        break;
+    }
+
+    return i;
+  }
+
+  private handleVectorCommand(
+    command: number,
+    state: {
+      currentPoint: Point;
+      currentPolyline: Point[];
+      scale: number;
+      isPenDown: boolean;
+    }
+  ): void {
+    const len = (command & 0xf0) >> 4;
+    const dir = command & 0x0f;
+    const vec = this.getVectorForDirection(dir);
+    
+    state.currentPoint.add(vec.multiply(len * state.scale));
+    if (state.isPenDown) {
+      state.currentPolyline.push(state.currentPoint.clone());
+    }
+  }
+
+  /**
+   * Get the vector for the given direction code. Please refer to the following link for more information.
+   * https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-0A8E12A1-F4AB-44AD-8A9B-2140E0D5FD23
+   * @param dir - The direction code of the vector
+   * @returns Returns the vector for the given direction code
+   */
+  private getVectorForDirection(dir: number): Point {
+    const vec = new Point();
+    switch (dir) {
+      case 0:
+        vec.x = 1;
+        break;
+      case 1:
+        vec.x = 1;
+        vec.y = 0.5;
+        break;
+      case 2:
+        vec.x = 1;
+        vec.y = 1;
+        break;
+      case 3:
+        vec.x = 0.5;
+        vec.y = 1;
+        break;
+      case 4:
+        vec.y = 1;
+        break;
+      case 5:
+        vec.x = -0.5;
+        vec.y = 1;
+        break;
+      case 6:
+        vec.x = -1;
+        vec.y = 1;
+        break;
+      case 7:
+        vec.x = -1;
+        vec.y = 0.5;
+        break;
+      case 8:
+        vec.x = -1;
+        break;
+      case 9:
+        vec.x = -1;
+        vec.y = -0.5;
+        break;
+      case 10:
+        vec.x = -1;
+        vec.y = -1;
+        break;
+      case 11:
+        vec.x = -0.5;
+        vec.y = -1;
+        break;
+      case 12:
+        vec.y = -1;
+        break;
+      case 13:
+        vec.x = 0.5;
+        vec.y = -1;
+        break;
+      case 14:
+        vec.x = 1;
+        vec.y = -1;
+        break;
+      case 15:
+        vec.x = 1;
+        vec.y = -0.5;
+        break;
+    }
+    return vec;
+  }
+
+  private handleSubshapeCommand(
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      polylines: Point[][];
+      currentPolyline: Point[];
+      scale: number;
+      encoder: ShxByteEncoder;
+      isPenDown: boolean;
+    }
+  ): number {
+    let i = index;
+    let subCode = 0;
+    let shape;
+    let size = state.scale * this.fontData.content.baseUp;
+    const origin = state.currentPoint.clone();
+
+    if (state.currentPolyline.length > 1) {
+      state.polylines.push(state.currentPolyline.slice());
+      state.currentPolyline = [];
+    }
+
+    switch (this.fontData.header.fontType) {
+      case ShxFontType.SHAPES:
+        i++;
+        subCode = data[i];
+        break;
+      case ShxFontType.BIGFONT:
+        i++;
+        subCode = data[i];
+        if (subCode === 0) {
+          i++;
+          subCode = state.encoder.toUint16(i);
+          i += 2;
+          origin.x = data[i++] * state.scale;
+          origin.y = data[i++] * state.scale;
+          const height = data[i] * state.scale;
+          size = height;
+        }
+        break;
+      case ShxFontType.UNIFONT:
+        i += 2;
+        subCode = state.encoder.toUint16(i - 1);
+        break;
+    }
+
+    if (subCode !== 0) {
+      shape = this.getShapeByCodeWithOffset(subCode, size, origin);
+      if (shape) {
+        state.polylines.push(...shape.polylines.slice());
+        state.currentPoint = shape.lastPoint ? shape.lastPoint.clone() : origin.clone();
+      }
+    }
+
+    state.currentPolyline = [];
+    state.isPenDown = false;
+    return i;
+  }
+
+  private handleXYDisplacement(
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      currentPolyline: Point[];
+      scale: number;
+      isPenDown: boolean;
+    }
+  ): number {
+    let i = index;
+    const vec = new Point();
+    vec.x = ShxByteEncoder.byteToSByte(data[++i]);
+    vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+    state.currentPoint.add(vec.multiply(state.scale));
+    if (state.isPenDown) {
+      state.currentPolyline.push(state.currentPoint.clone());
+    }
+    return i;
+  }
+
+  private handleMultipleXYDisplacements(
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      currentPolyline: Point[];
+      scale: number;
+      isPenDown: boolean;
+    }
+  ): number {
+    let i = index;
+    while (true) {
+      const vec = new Point();
+      vec.x = ShxByteEncoder.byteToSByte(data[++i]);
+      vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+      if (vec.x === 0 && vec.y === 0) {
+        break;
+      }
+      state.currentPoint.add(vec.multiply(state.scale));
+      if (state.isPenDown) {
+        state.currentPolyline.push(state.currentPoint.clone());
+      }
+    }
+    return i;
+  }
+
+  private handleOctantArc(
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      currentPolyline: Point[];
+      scale: number;
+      isPenDown: boolean;
+    }
+  ): number {
+    let i = index;
+    const radius = data[++i] * state.scale;
+    const flag = ShxByteEncoder.byteToSByte(data[++i]);
+    const startOctant = (flag & 0x70) >> 4;
+    let octantCount = flag & 0x07;
+    const isClockwise = flag < 0;
+    const startRadian = (Math.PI / 4) * startOctant;
+    const center = state.currentPoint
+      .clone()
+      .subtract(new Point(Math.cos(startRadian) * radius, Math.sin(startRadian) * radius));
+
+    const arc = Arc.fromOctant(center, radius, startOctant, octantCount, isClockwise);
+
+    if (state.isPenDown) {
+      const arcPoints = arc.tessellate();
+      state.currentPolyline.pop();
+      state.currentPolyline.push(...arcPoints.slice());
+    }
+    state.currentPoint = arc.tessellate().pop()?.clone() as Point;
+    return i;
+  }
+
+  private handleFractionalArc(
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      currentPolyline: Point[];
+      scale: number;
+      isPenDown: boolean;
+    }
+  ): number {
+    let i = index;
+    const startOffset = data[++i];
+    const endOffset = data[++i];
+    const hr = data[++i];
+    const lr = data[++i];
+    const r = (hr * 255 + lr) * state.scale;
+    const flag = ShxByteEncoder.byteToSByte(data[++i]);
+    const n1 = (flag & 0x70) >> 4;
+    let n2 = flag & 0x07;
+    if (n2 === 0) {
+      n2 = 8;
+    }
+    if (endOffset !== 0) {
+      n2--;
+    }
+
+    const pi_4 = Math.PI / 4;
+    let span = pi_4 * n2;
+    let delta = CIRCLE_SPAN;
+    let sign = 1;
+    if (flag < 0) {
+      delta = -delta;
+      span = -span;
+      sign = -1;
+    }
+
+    let startRadian = pi_4 * n1;
+    let endRadian = startRadian + span;
+    startRadian += ((pi_4 * startOffset) / 256) * sign;
+    endRadian += ((pi_4 * endOffset) / 256) * sign;
+
+    const center = state.currentPoint
+      .clone()
+      .subtract(new Point(r * Math.cos(startRadian), r * Math.sin(startRadian)));
+
+    state.currentPoint = center
+      .clone()
+      .add(new Point(r * Math.cos(endRadian), r * Math.sin(endRadian)));
+
+    if (state.isPenDown) {
+      let currentRadian = startRadian;
+      while (true) {
+        currentRadian += delta;
+        if ((flag > 0 && currentRadian < endRadian) || (flag < 0 && currentRadian > endRadian)) {
+          state.currentPolyline.push(
+            center.clone().add(new Point(r * Math.cos(currentRadian), r * Math.sin(currentRadian)))
+          );
+        } else {
+          break;
+        }
+      }
+      state.currentPolyline.push(state.currentPoint.clone());
+    }
+    return i;
+  }
+
+  private handleBulgeArc(
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      currentPolyline: Point[];
+      scale: number;
+      isPenDown: boolean;
+    }
+  ): number {
+    let i = index;
+    const vec = new Point();
+    vec.x = ShxByteEncoder.byteToSByte(data[++i]);
+    vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+    const bulge = ShxByteEncoder.byteToSByte(data[++i]);
+    state.currentPoint = this.handleArcSegment(
+      state.currentPoint,
+      vec,
+      bulge,
+      state.scale,
+      state.isPenDown,
+      state.currentPolyline
+    );
+    return i;
+  }
+
+  private handleMultipleBulgeArcs(
+    data: Uint8Array,
+    index: number,
+    state: {
+      currentPoint: Point;
+      currentPolyline: Point[];
+      scale: number;
+      isPenDown: boolean;
+    }
+  ): number {
+    let i = index;
+    while (true) {
+      const vec = new Point();
+      vec.x = ShxByteEncoder.byteToSByte(data[++i]);
+      vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+      if (vec.x === 0 && vec.y === 0) {
+        break;
+      }
+      const bulge = ShxByteEncoder.byteToSByte(data[++i]);
+      state.currentPoint = this.handleArcSegment(
+        state.currentPoint,
+        vec,
+        bulge,
+        state.scale,
+        state.isPenDown,
+        state.currentPolyline
+      );
+    }
+    return i;
   }
 
   private skipCode(data: Uint8Array, index: number) {
