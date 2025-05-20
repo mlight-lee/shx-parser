@@ -14,22 +14,14 @@ const OCTANT_ANGLE = Math.PI / 4; // 45 degrees
  * - |bulge| should not exceed 1
  */
 export class Arc {
-  private readonly start: Point;
-  private readonly end: Point | undefined;
+  public readonly start: Point;
+  public readonly end: Point;
   private readonly bulge: number | undefined;
-  private readonly center: Point;
-  private _radius: number;
-  private readonly startAngle: number;
-  private readonly endAngle: number;
-  private _isClockwise: boolean;
-
-  get radius(): number {
-    return this._radius;
-  }
-
-  get isClockwise(): boolean {
-    return this._isClockwise;
-  }
+  public readonly center: Point;
+  public readonly radius: number;
+  public readonly startAngle: number;
+  public readonly endAngle: number;
+  public readonly isClockwise: boolean;
 
   /**
    * Creates a bulge-defined arc
@@ -86,7 +78,7 @@ export class Arc {
       this.start = params.start.clone();
       this.end = params.end.clone();
       this.bulge = params.bulge;
-      this._isClockwise = params.bulge < 0;
+      this.isClockwise = params.bulge < 0;
 
       // Calculate arc geometry
       const distance = this.end.clone().subtract(this.start);
@@ -95,7 +87,7 @@ export class Arc {
 
       if (H === 0) {
         // Handle straight line case
-        this._radius = 0;
+        this.radius = 0;
         this.center = this.start.clone();
         this.startAngle = Math.atan2(distance.y, distance.x);
         this.endAngle = this.startAngle;
@@ -106,16 +98,16 @@ export class Arc {
       // - theta is the included angle
       // - bulge = tan(theta/4)
       const theta = 4 * Math.atan(Math.abs(this.bulge));
-      this._radius = D / (2 * Math.sin(theta / 2));
+      this.radius = D / (2 * Math.sin(theta / 2));
 
       // Calculate center point
       const midpoint = this.start.clone().add(distance.clone().divide(2));
       const normal = new Point(-distance.y, distance.x); // Perpendicular to chord
       normal.normalize();
-      normal.multiply(Math.abs(this._radius * Math.cos(theta / 2))); // Distance from midpoint to center
+      normal.multiply(Math.abs(this.radius * Math.cos(theta / 2))); // Distance from midpoint to center
 
       this.center = midpoint.clone();
-      if (this._isClockwise) {
+      if (this.isClockwise) {
         this.center.subtract(normal);
       } else {
         this.center.add(normal);
@@ -126,7 +118,7 @@ export class Arc {
       this.endAngle = Math.atan2(this.end.y - this.center.y, this.end.x - this.center.x);
 
       // Ensure proper angle range for the arc direction
-      if (this._isClockwise) {
+      if (this.isClockwise) {
         if (this.endAngle >= this.startAngle) {
           this.endAngle -= 2 * Math.PI;
         }
@@ -144,23 +136,33 @@ export class Arc {
     ) {
       // Octant arc initialization
       this.center = params.center.clone();
-      this._radius = params.radius;
-      this._isClockwise = params.isClockwise;
+      this.radius = params.radius;
+      this.isClockwise = params.isClockwise;
 
       // Convert octant to angle (octants start at 3 o'clock and go counterclockwise)
       this.startAngle = params.startOctant * OCTANT_ANGLE;
 
       // Handle octantCount (0 means 8 octants)
       const span = (params.octantCount === 0 ? 8 : params.octantCount) * OCTANT_ANGLE;
-      this.endAngle = this.startAngle + (this._isClockwise ? -span : span);
+      this.endAngle = this.startAngle + (this.isClockwise ? -span : span);
 
       // Calculate start point
       this.start = this.center
         .clone()
         .add(
           new Point(
-            this._radius * Math.cos(this.startAngle),
-            this._radius * Math.sin(this.startAngle)
+            this.radius * Math.cos(this.startAngle),
+            this.radius * Math.sin(this.startAngle)
+          )
+        );
+
+      // Calculate end point
+      this.end = this.center
+        .clone()
+        .add(
+          new Point(
+            this.radius * Math.cos(this.endAngle),
+            this.radius * Math.sin(this.endAngle)
           )
         );
     } else {
@@ -175,8 +177,8 @@ export class Arc {
    */
   tessellate(circleSpan: number = Math.PI / 18): Point[] {
     // Handle straight line case
-    if (this._radius === 0) {
-      return [this.start.clone(), this.end!.clone()];
+    if (this.radius === 0) {
+      return [this.start.clone(), this.end.clone()];
     }
 
     const points: Point[] = [this.start.clone()];
@@ -190,14 +192,14 @@ export class Arc {
     // Generate intermediate points
     for (let i = 1; i < numSegments; i++) {
       const t = i / numSegments;
-      const angle = this._isClockwise
+      const angle = this.isClockwise
         ? this.startAngle - t * includedAngle
         : this.startAngle + t * includedAngle;
 
       points.push(
         this.center
           .clone()
-          .add(new Point(this._radius * Math.cos(angle), this._radius * Math.sin(angle)))
+          .add(new Point(this.radius * Math.cos(angle), this.radius * Math.sin(angle)))
       );
     }
 
@@ -209,8 +211,8 @@ export class Arc {
             .clone()
             .add(
               new Point(
-                this._radius * Math.cos(this.endAngle),
-                this._radius * Math.sin(this.endAngle)
+                this.radius * Math.cos(this.endAngle),
+                this.radius * Math.sin(this.endAngle)
               )
             )
     );

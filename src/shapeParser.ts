@@ -172,7 +172,7 @@ export class ShxShapeParser {
         state.sp.push(state.currentPoint.clone());
         break;
       case 6: // Pop current location
-        state.currentPoint = state.sp.pop() as Point;
+        state.currentPoint = state.sp.pop() as Point ?? state.currentPoint;
         break;
       case 7: // Draw subshape
         i = this.handleSubshapeCommand(data, i, state);
