@@ -160,10 +160,7 @@ export class Arc {
       this.end = this.center
         .clone()
         .add(
-          new Point(
-            this.radius * Math.cos(this.endAngle),
-            this.radius * Math.sin(this.endAngle)
-          )
+          new Point(this.radius * Math.cos(this.endAngle), this.radius * Math.sin(this.endAngle))
         );
     } else {
       throw new Error('Invalid arc parameters');

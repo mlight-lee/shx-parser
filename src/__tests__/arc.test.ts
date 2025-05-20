@@ -104,11 +104,11 @@ describe('Arc', () => {
       expect(arc.center.y).toBe(center.y);
       expect(arc.startAngle).toBeCloseTo(0); // 0 degrees
       expect(arc.endAngle).toBeCloseTo(Math.PI / 2); // 90 degrees
-      
+
       // Check start point (0 degrees)
       expect(arc.start.x).toBeCloseTo(radius);
       expect(arc.start.y).toBeCloseTo(0);
-      
+
       // Check end point (90 degrees)
       expect(arc.end.x).toBeCloseTo(0);
       expect(arc.end.y).toBeCloseTo(radius);
@@ -129,11 +129,11 @@ describe('Arc', () => {
       expect(arc.center.y).toBe(center.y);
       expect(arc.startAngle).toBeCloseTo(Math.PI / 2); // 90 degrees
       expect(arc.endAngle).toBeCloseTo(-Math.PI / 4); // -45 degrees
-      
+
       // Check start point (90 degrees)
       expect(arc.start.x).toBeCloseTo(0);
       expect(arc.start.y).toBeCloseTo(radius);
-      
+
       // Check end point (-45 degrees)
       expect(arc.end.x).toBeCloseTo(radius * Math.cos(-Math.PI / 4));
       expect(arc.end.y).toBeCloseTo(radius * Math.sin(-Math.PI / 4));
@@ -155,11 +155,11 @@ describe('Arc', () => {
       expect(arc.startAngle).toBeCloseTo(Math.PI); // 180 degrees
       // For full circle, end angle should be start angle + 2π
       expect(arc.endAngle).toBeCloseTo(Math.PI + 2 * Math.PI); // 180 degrees + 360 degrees
-      
+
       // Check start point (180 degrees)
       expect(arc.start.x).toBeCloseTo(center.x - radius);
       expect(arc.start.y).toBeCloseTo(center.y);
-      
+
       // Check end point (180 degrees - full circle)
       expect(arc.end.x).toBeCloseTo(center.x - radius);
       expect(arc.end.y).toBeCloseTo(center.y);
@@ -179,12 +179,12 @@ describe('Arc', () => {
       expect(arc.center.x).toBe(center.x);
       expect(arc.center.y).toBe(center.y);
       expect(arc.startAngle).toBeCloseTo(Math.PI / 4); // 45 degrees
-      expect(arc.endAngle).toBeCloseTo(3 * Math.PI / 2); // 270 degrees
-      
+      expect(arc.endAngle).toBeCloseTo((3 * Math.PI) / 2); // 270 degrees
+
       // Check start point (45 degrees)
       expect(arc.start.x).toBeCloseTo(radius * Math.cos(Math.PI / 4));
       expect(arc.start.y).toBeCloseTo(radius * Math.sin(Math.PI / 4));
-      
+
       // Check end point (270 degrees)
       expect(arc.end.x).toBeCloseTo(0);
       expect(arc.end.y).toBeCloseTo(-radius);

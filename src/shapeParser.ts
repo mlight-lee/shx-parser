@@ -97,12 +97,12 @@ export class ShxShapeParser {
       sp,
       isPenDown,
       scale,
-      encoder
+      encoder,
     };
 
     for (let i = 0; i < data.length; i++) {
       const cb = data[i];
-      
+
       if (cb <= 0x0f) {
         i = this.handleSpecialCommand(cb, data, i, state);
       } else {
@@ -172,7 +172,7 @@ export class ShxShapeParser {
         state.sp.push(state.currentPoint.clone());
         break;
       case 6: // Pop current location
-        state.currentPoint = state.sp.pop() as Point ?? state.currentPoint;
+        state.currentPoint = (state.sp.pop() as Point) ?? state.currentPoint;
         break;
       case 7: // Draw subshape
         i = this.handleSubshapeCommand(data, i, state);
@@ -215,7 +215,7 @@ export class ShxShapeParser {
     const len = (command & 0xf0) >> 4;
     const dir = command & 0x0f;
     const vec = this.getVectorForDirection(dir);
-    
+
     state.currentPoint.add(vec.multiply(len * state.scale));
     if (state.isPenDown) {
       state.currentPolyline.push(state.currentPoint.clone());
@@ -485,17 +485,28 @@ export class ShxShapeParser {
 
     if (state.isPenDown) {
       let currentRadian = startRadian;
-      while (true) {
-        currentRadian += delta;
-        if ((flag > 0 && currentRadian < endRadian) || (flag < 0 && currentRadian > endRadian)) {
-          state.currentPolyline.push(
+      const points = [];
+      points.push(
+        center.clone().add(new Point(r * Math.cos(currentRadian), r * Math.sin(currentRadian)))
+      );
+      if (delta > 0) {
+        while (currentRadian + delta < endRadian) {
+          currentRadian += delta;
+          points.push(
             center.clone().add(new Point(r * Math.cos(currentRadian), r * Math.sin(currentRadian)))
           );
-        } else {
-          break;
+        }
+      } else {
+        while (currentRadian + delta > endRadian) {
+          currentRadian += delta;
+          points.push(
+            center.clone().add(new Point(r * Math.cos(currentRadian), r * Math.sin(currentRadian)))
+          );
         }
       }
-      state.currentPolyline.push(state.currentPoint.clone());
+      // Always add the end point
+      points.push(center.clone().add(new Point(r * Math.cos(endRadian), r * Math.sin(endRadian))));
+      state.currentPolyline.push(...points);
     }
     return i;
   }
