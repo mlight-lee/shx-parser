@@ -62,7 +62,6 @@ export class ShxShapeParser {
         const data = codes[code];
         const scale = DEFAULT_FONT_SIZE / this.fontData.content.baseUp;
         textShape = this.parseShape(data, scale);
-
         this.shapeData.set(code, textShape);
       }
     }
@@ -98,8 +97,7 @@ export class ShxShapeParser {
       switch (cb) {
         // End of shape definition
         case 0:
-          // Reset state when shape ends
-          currentPoint = new Point();
+          // Reset state when shape ends, but currentPoint should not be reseted
           currentPolyline = [];
           isPenDown = false;
           break;
@@ -178,11 +176,11 @@ export class ShxShapeParser {
               shape = this.getShapeByCodeWithOffset(subCode, size, origin);
               if (shape) {
                 polylines.push(...shape.polylines.slice());
-                // Set currentPoint to the subshape's lastPoint (with offset) if it exists, or to (0,0)
+                // Set currentPoint to the subshape's lastPoint (with offset) if it exists, or to origin
                 if (shape.lastPoint) {
                   currentPoint = shape.lastPoint.clone();
                 } else {
-                  currentPoint = new Point();
+                  currentPoint = origin.clone();
                 }
               }
             }
@@ -229,27 +227,16 @@ export class ShxShapeParser {
             const startOctant = (flag & 0x70) >> 4;
             let octantCount = flag & 0x07;
             const isClockwise = flag < 0;
-            const startRadian = (Math.PI / 4) * startOctant
+            const startRadian = (Math.PI / 4) * startOctant;
             const center = currentPoint
               .clone()
-              .subtract(
-                new Point(
-                  Math.cos(startRadian) * radius,
-                  Math.sin(startRadian) * radius
-                )
-              )
+              .subtract(new Point(Math.cos(startRadian) * radius, Math.sin(startRadian) * radius));
 
-            const arc = Arc.fromOctant(
-              center,
-              radius,
-              startOctant,
-              octantCount,
-              isClockwise
-            );
+            const arc = Arc.fromOctant(center, radius, startOctant, octantCount, isClockwise);
 
             if (isPenDown) {
               const arcPoints = arc.tessellate();
-              // Remove the last point from the current polyline. 
+              // Remove the last point from the current polyline.
               // It look like that the current point should not be included for octant arc.
               currentPolyline.pop();
               currentPolyline.push(...arcPoints.slice());
