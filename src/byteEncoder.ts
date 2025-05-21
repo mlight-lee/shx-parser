@@ -81,7 +81,7 @@ export class ShxByteEncoder {
    * @returns The signed byte value
    */
   public static byteToSByte(value: number): number {
-    return value > 127 ? value - 256 : value;
+    return (value & 127) - (value & 128 ? 128 : 0);
   }
 
   /**
