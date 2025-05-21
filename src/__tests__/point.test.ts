@@ -114,6 +114,43 @@ describe('Point', () => {
     });
   });
 
+  describe('multiplyScalars', () => {
+    it('should multiply coordinates by different scalars correctly', () => {
+      const point = new Point(2, 3);
+      point.multiplyScalars(2, 3);
+      expect(point.x).toBe(4);
+      expect(point.y).toBe(9);
+    });
+
+    it('should return the point instance', () => {
+      const point = new Point(2, 3);
+      const result = point.multiplyScalars(2, 3);
+      expect(result).toBe(point);
+    });
+  });
+
+  describe('divideScalars', () => {
+    it('should divide coordinates by different scalars correctly', () => {
+      const point = new Point(10, 15);
+      point.divideScalars(2, 3);
+      expect(point.x).toBe(5);
+      expect(point.y).toBe(5);
+    });
+
+    it('should handle division by zero for individual coordinates', () => {
+      const point = new Point(10, 15);
+      point.divideScalars(0, 3);
+      expect(point.x).toBe(10); // x remains unchanged due to division by zero
+      expect(point.y).toBe(5); // y is divided by 3
+    });
+
+    it('should return the point instance', () => {
+      const point = new Point(10, 15);
+      const result = point.divideScalars(2, 3);
+      expect(result).toBe(point);
+    });
+  });
+
   describe('distanceTo', () => {
     it('should calculate distance correctly', () => {
       const point1 = new Point(0, 0);

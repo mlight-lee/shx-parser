@@ -105,6 +105,30 @@ export class Point {
   }
 
   /**
+   * Multiplies x and y coordinates by different scalar values.
+   * @param xScalar - The scalar value to multiply x-coordinate by
+   * @param yScalar - The scalar value to multiply y-coordinate by
+   * @returns The point instance for method chaining
+   */
+  multiplyScalars(xScalar: number, yScalar: number): Point {
+    this.x *= xScalar;
+    this.y *= yScalar;
+    return this;
+  }
+
+  /**
+   * Divides x and y coordinates by different scalar values.
+   * @param xScalar - The scalar value to divide x-coordinate by
+   * @param yScalar - The scalar value to divide y-coordinate by
+   * @returns The point instance for method chaining
+   */
+  divideScalars(xScalar: number, yScalar: number): Point {
+    if (xScalar !== 0) this.x /= xScalar;
+    if (yScalar !== 0) this.y /= yScalar;
+    return this;
+  }
+
+  /**
    * Calculates the Euclidean distance to another point.
    * @param point - The point to calculate distance to
    * @returns The distance between the two points
