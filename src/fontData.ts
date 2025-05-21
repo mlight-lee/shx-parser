@@ -28,6 +28,11 @@ export interface ShxFontContentData {
   baseUp: number;
   /** Number of pixels below the baseline */
   baseDown: number;
+  /**
+   * Indicates if the font is an extended big font. To reduce the size of composite Kanji
+   * characters, you can define an extended Big Font file.
+   */
+  isExtended: boolean;
 }
 
 /**

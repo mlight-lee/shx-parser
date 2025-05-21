@@ -55,6 +55,7 @@ class ShxShapeContentParser implements ShxContentParser {
         baseUp: 8, // Default values
         baseDown: 2,
         orientation: 'horizontal',
+        isExtended: false,
       };
 
       // Try to read font info if available
@@ -86,6 +87,7 @@ class ShxShapeContentParser implements ShxContentParser {
         baseUp: 8,
         baseDown: 2,
         orientation: 'horizontal',
+        isExtended: false,
       };
     }
   }
@@ -135,6 +137,7 @@ class ShxBigfontContentParser implements ShxContentParser {
         baseUp: 8,
         baseDown: 2,
         orientation: 'horizontal',
+        isExtended: false,
       };
 
       // Try to read font info if available
@@ -156,6 +159,7 @@ class ShxBigfontContentParser implements ShxContentParser {
                 index++;
                 fontData.orientation = infoData[index++] === 0 ? 'horizontal' : 'vertical';
                 fontData.baseDown = infoData[index++];
+                fontData.isExtended = true;
               }
             }
           }
@@ -174,6 +178,7 @@ class ShxBigfontContentParser implements ShxContentParser {
         baseUp: 8,
         baseDown: 2,
         orientation: 'horizontal',
+        isExtended: false,
       };
     }
   }
@@ -232,6 +237,7 @@ class ShxUnifontContentParser implements ShxContentParser {
         baseUp: 8,
         baseDown: 2,
         orientation: 'horizontal',
+        isExtended: false,
       };
 
       // Try to parse info data
@@ -278,6 +284,7 @@ class ShxUnifontContentParser implements ShxContentParser {
         baseUp: 8,
         baseDown: 2,
         orientation: 'horizontal',
+        isExtended: false,
       };
     }
   }

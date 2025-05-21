@@ -1,17 +1,19 @@
 # SHX Parser
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![npm version](https://badge.fury.io/js/shx-parser.svg)](https://badge.fury.io/js/shx-parser)
+[![npm version](https://badge.fury.io/js/@mlightcad%2Fshx-parser.svg)](https://badge.fury.io/js/@mlightcad/shx-parser)
 [![CI/CD](https://github.com/shx-parser/shx-parser/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/shx-parser/shx-parser/actions/workflows/ci-cd.yml)
 
-A TypeScript library for parsing AutoCAD SHX font files.
+A TypeScript library for parsing AutoCAD SHX font files. It is ported from [this project](https://github.com/yzylovepmn/YFonts.SHX) written by C#. This project fixed many bugs on the original parser. Moreover, support parsing [extended big font](https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-00ED0CC6-A4BE-4591-93FA-598CC40AA43D).
+
+If you are interested in the format of SHX font, please refer to [this document](https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-06832147-16BE-4A66-A6D0-3ADF98DC8228).
 
 ## Features
 
 - Parse SHX font files and extract font data
 - Support for various SHX font types:
   - Shapes
-  - Bigfont
+  - Bigfont (including Extended Big Font)
   - Unifont
 - Shape parsing with performance optimization:
   - On-demand parsing
