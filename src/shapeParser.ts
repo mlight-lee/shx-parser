@@ -1,7 +1,7 @@
 import { Point } from './point';
-import { ShxByteEncoder } from './byteEncoder';
 import { ShxFontData, ShxFontType } from './fontData';
 import { Arc } from './arc';
+import { ShxFileReader } from './fileReader';
 
 const CIRCLE_SPAN = Math.PI / 18;
 const DEFAULT_FONT_SIZE = 12;
@@ -83,7 +83,6 @@ export class ShxShapeParser {
    * @returns The parsed shape
    */
   private parseShape(data: Uint8Array, scale: number): ShxShape {
-    const encoder = new ShxByteEncoder(data.buffer);
     let currentPoint = new Point();
     const polylines: Point[][] = [];
     let currentPolyline: Point[] = [];
@@ -97,7 +96,6 @@ export class ShxShapeParser {
       sp,
       isPenDown,
       scale,
-      encoder,
     };
 
     for (let i = 0; i < data.length; i++) {
@@ -136,7 +134,6 @@ export class ShxShapeParser {
       sp: Point[];
       isPenDown: boolean;
       scale: number;
-      encoder: ShxByteEncoder;
     }
   ): number {
     let i = index;
@@ -303,7 +300,6 @@ export class ShxShapeParser {
       polylines: Point[][];
       currentPolyline: Point[];
       scale: number;
-      encoder: ShxByteEncoder;
       isPenDown: boolean;
     }
   ): number {
@@ -377,8 +373,8 @@ export class ShxShapeParser {
   ): number {
     let i = index;
     const vec = new Point();
-    vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-    vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+    vec.x = ShxFileReader.byteToSByte(data[++i]);
+    vec.y = ShxFileReader.byteToSByte(data[++i]);
     state.currentPoint.add(vec.multiply(state.scale));
     if (state.isPenDown) {
       state.currentPolyline.push(state.currentPoint.clone());
@@ -399,8 +395,8 @@ export class ShxShapeParser {
     let i = index;
     while (true) {
       const vec = new Point();
-      vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-      vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+      vec.x = ShxFileReader.byteToSByte(data[++i]);
+      vec.y = ShxFileReader.byteToSByte(data[++i]);
       if (vec.x === 0 && vec.y === 0) {
         break;
       }
@@ -424,7 +420,7 @@ export class ShxShapeParser {
   ): number {
     let i = index;
     const radius = data[++i] * state.scale;
-    const flag = ShxByteEncoder.byteToSByte(data[++i]);
+    const flag = ShxFileReader.byteToSByte(data[++i]);
     const startOctant = (flag & 0x70) >> 4;
     let octantCount = flag & 0x07;
     const isClockwise = flag < 0;
@@ -460,7 +456,7 @@ export class ShxShapeParser {
     const hr = data[++i];
     const lr = data[++i];
     const r = (hr * 255 + lr) * state.scale;
-    const flag = ShxByteEncoder.byteToSByte(data[++i]);
+    const flag = ShxFileReader.byteToSByte(data[++i]);
     const n1 = (flag & 0x70) >> 4;
     let n2 = flag & 0x07;
     if (n2 === 0) {
@@ -533,9 +529,9 @@ export class ShxShapeParser {
   ): number {
     let i = index;
     const vec = new Point();
-    vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-    vec.y = ShxByteEncoder.byteToSByte(data[++i]);
-    const bulge = ShxByteEncoder.byteToSByte(data[++i]);
+    vec.x = ShxFileReader.byteToSByte(data[++i]);
+    vec.y = ShxFileReader.byteToSByte(data[++i]);
+    const bulge = ShxFileReader.byteToSByte(data[++i]);
     state.currentPoint = this.handleArcSegment(
       state.currentPoint,
       vec,
@@ -560,12 +556,12 @@ export class ShxShapeParser {
     let i = index;
     while (true) {
       const vec = new Point();
-      vec.x = ShxByteEncoder.byteToSByte(data[++i]);
-      vec.y = ShxByteEncoder.byteToSByte(data[++i]);
+      vec.x = ShxFileReader.byteToSByte(data[++i]);
+      vec.y = ShxFileReader.byteToSByte(data[++i]);
       if (vec.x === 0 && vec.y === 0) {
         break;
       }
-      const bulge = ShxByteEncoder.byteToSByte(data[++i]);
+      const bulge = ShxFileReader.byteToSByte(data[++i]);
       state.currentPoint = this.handleArcSegment(
         state.currentPoint,
         vec,

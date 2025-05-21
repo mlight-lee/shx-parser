@@ -9,6 +9,16 @@ export class ShxFileReader {
   private data: DataView;
 
   /**
+   * Converts an unsigned byte to a signed byte as used in SHX format.
+   * Values > 127 are converted to their signed equivalent (-128 to -1).
+   * @param value - The unsigned byte value to convert
+   * @returns The signed byte value
+   */
+  public static byteToSByte(value: number): number {
+    return (value & 127) - (value & 128 ? 128 : 0);
+  }
+
+  /**
    * Creates a new ShxFileReader instance.
    * @param arraybuffer - The ArrayBuffer to read from
    */
