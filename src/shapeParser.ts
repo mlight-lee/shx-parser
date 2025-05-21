@@ -310,7 +310,8 @@ export class ShxShapeParser {
     let i = index;
     let subCode = 0;
     let shape;
-    let size = state.scale * this.fontData.content.baseUp;
+    let height = state.scale * this.fontData.content.baseUp;
+    let width = height;
     const origin = state.currentPoint.clone();
 
     if (state.currentPolyline.length > 1) {
@@ -328,22 +329,26 @@ export class ShxShapeParser {
         subCode = data[i];
         if (subCode === 0) {
           i++;
-          subCode = state.encoder.toUint16(i);
-          i += 2;
+          subCode = data[i++] | (data[i++] << 8);
           origin.x = data[i++] * state.scale;
           origin.y = data[i++] * state.scale;
-          const height = data[i] * state.scale;
-          size = height;
+          if (this.fontData.content.isExtended) {
+            // Extended big font has seperated width and height value
+            width = data[i++] * state.scale;
+            height = data[i] * state.scale;
+          } else {
+            height = data[i] * state.scale;
+          }
         }
         break;
       case ShxFontType.UNIFONT:
-        i += 2;
-        subCode = state.encoder.toUint16(i - 1);
+        i++;
+        subCode = data[i++] | (data[i++] << 8);
         break;
     }
 
     if (subCode !== 0) {
-      shape = this.getShapeByCodeWithOffset(subCode, size, origin);
+      shape = this.getShapeByCodeWithOffset(subCode, width, height, origin);
       if (shape) {
         state.polylines.push(...shape.polylines.slice());
         state.currentPoint = shape.lastPoint ? shape.lastPoint.clone() : origin.clone();
@@ -351,7 +356,12 @@ export class ShxShapeParser {
     }
 
     state.currentPolyline = [];
-    state.isPenDown = false;
+    // TBD: Not sure whether pen down should be reset here.
+    // According to special code reference in AutoCAD help document.
+    // https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-06832147-16BE-4A66-A6D0-3ADF98DC8228
+    // It mentions draw mode is not reset for the new shape. 
+    // When the subshape is complete, drawing the current shape resumes.
+    // state.isPenDown = false;
     return i;
   }
 
@@ -595,7 +605,7 @@ export class ShxShapeParser {
               index++;
               const subCode = data[index];
               if (subCode === 0) {
-                index += 6;
+                index += 5;
               }
             }
             break;
@@ -637,7 +647,7 @@ export class ShxShapeParser {
             if (x === 0 && y === 0) {
               break;
             }
-            data[++index];
+            index++;
           }
         }
         break;
@@ -651,10 +661,11 @@ export class ShxShapeParser {
 
   private getShapeByCodeWithOffset(
     code: number,
-    size: number,
+    width: number,
+    height: number,
     translate: Point
   ): ShxShape | undefined {
-    const shape = this.parse(code, size);
+    const shape = this.parse(code, width);
     if (shape) {
       return {
         lastPoint: shape.lastPoint?.clone().add(translate),
