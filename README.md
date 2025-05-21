@@ -39,6 +39,26 @@ Using yarn:
 yarn add @mlightcad/shx-parser
 ```
 
+## Demo app
+
+The [demo app](https://mlight-lee.github.io/shx-parser/) is provided with a web-based interface for viewing and exploring SHX font files with the following features:
+
+- **Dual Loading Modes**:
+  - Upload local SHX files
+  - Select from a remote font library
+
+- **Main Features**:
+  - View all characters in a responsive grid layout
+  - Search characters by code (decimal/hex)
+  - Click characters to see them in a larger modal view
+  - Toggle between decimal and hexadecimal code display
+
+- **Display Information**:
+  - Shows font type, version, and character count
+  - Renders characters as SVG graphics
+  - Responsive grid layout that works on different screen sizes
+
+
 ## Quick Start
 
 ```typescript
