@@ -33,6 +33,18 @@ export class ShxFileReader {
   }
 
   /**
+   * Skips a specified number of bytes from the current position.
+   * @param length - Number of bytes to skip
+   * @throws Error if skipping beyond buffer bounds
+   */
+  skip(length: number): void {
+    if (this.data.byteLength < this.position + length) {
+      this.throwOutOfRangeError(this.position + length);
+    }
+    this.position += length;
+  }
+
+  /**
    * Reads an unsigned 8-bit integer.
    * @returns The read uint8 value
    * @throws Error if reading beyond buffer bounds

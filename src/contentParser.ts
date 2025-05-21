@@ -103,7 +103,7 @@ class ShxBigfontContentParser implements ShxContentParser {
       }
 
       // Skip change table
-      reader.readBytes(changeNumber * 4);
+      reader.skip(changeNumber * 4);
 
       const items: { code: number; length: number; offset: number }[] = [];
       for (let i = 0; i < count; i++) {
