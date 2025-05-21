@@ -359,7 +359,7 @@ export class ShxShapeParser {
     // TBD: Not sure whether pen down should be reset here.
     // According to special code reference in AutoCAD help document.
     // https://help.autodesk.com/view/OARX/2023/ENU/?guid=GUID-06832147-16BE-4A66-A6D0-3ADF98DC8228
-    // It mentions draw mode is not reset for the new shape. 
+    // It mentions draw mode is not reset for the new shape.
     // When the subshape is complete, drawing the current shape resumes.
     // state.isPenDown = false;
     return i;
@@ -665,12 +665,23 @@ export class ShxShapeParser {
     height: number,
     translate: Point
   ): ShxShape | undefined {
-    const shape = this.parse(code, width);
+    const shape = this.parse(code, height);
     if (shape) {
-      return {
-        lastPoint: shape.lastPoint?.clone().add(translate),
-        polylines: shape.polylines.map(line => line.map(point => point.clone().add(translate))),
-      };
+      if (width === height) {
+        return {
+          lastPoint: shape.lastPoint?.clone().add(translate),
+          polylines: shape.polylines.map(line => line.map(point => point.clone().add(translate))),
+        };
+      } else {
+        const lastPoint = shape.lastPoint?.clone();
+        if (lastPoint) lastPoint.x *= width / height;
+        const polylines = shape.polylines.map(line => line.map(point => point.clone()));
+        polylines.forEach(line => line.forEach(point => (point.x *= width / height)));
+        return {
+          lastPoint: lastPoint?.add(translate),
+          polylines: polylines.map(line => line.map(point => point.add(translate))),
+        };
+      }
     }
     return undefined;
   }
