@@ -123,15 +123,16 @@ interface ShxFontData {
     data: Record<number, Uint8Array>;  // Character code to bitmap data mapping
     info: string;              // Additional font information
     orientation: string;       // Text orientation ('horizontal' | 'vertical')
-    baseUp: number;           // Pixels above baseline
-    baseDown: number;         // Pixels below baseline
+    baseUp: number;            // Pixels above baseline
+    baseDown: number;          // Pixels below baseline
+    isExtended: boolean;       // Flag to indicate if the font is an extended big font
   };
 }
 ```
 
 ## Example
 
-### Loading a Font File
+### Loading and Displaying Font Information
 
 ```typescript
 import { readFile } from 'fs/promises';
@@ -140,89 +141,150 @@ import { ShxFont } from '@mlightcad/shx-parser';
 async function loadFont(filePath: string) {
   const buffer = await readFile(filePath);
   const font = new ShxFont(buffer.buffer);
+  
+  // Display font information
+  const fontData = font.fontData;
+  console.log('Font Information:');
+  console.log('----------------');
+  console.log('Font Type:', fontData.header.fontType);
+  console.log('Header:', fontData.header.fileHeader);
+  console.log('Version:', fontData.header.fileVersion);
+  console.log('Info:', fontData.content.info);
+  console.log('Orientation:', fontData.content.orientation);
+  console.log('Base Up:', fontData.content.baseUp);
+  console.log('Base Down:', fontData.content.baseDown);
+  console.log('Number of shapes:', Object.keys(fontData.content.data).length);
+  
   return font;
 }
 ```
 
-### Rendering Text Shape as SVG
+### Converting Shape to SVG Path
 
 ```typescript
-function renderTextToSvg(font: ShxFont, text: string, size: number, options = {
-  width: 1000,
-  height: 1000,
-  strokeWidth: '0.1%',
-  strokeColor: 'black',
-  isAutoFit: false
-}) {
+function shapeToSvgPath(shape: ShxShape, x: number = 0, y: number = 0): string {
+  if (!shape?.polylines.length) return '';
+  
+  return shape.polylines.map(polyline => {
+    if (!Array.isArray(polyline) || polyline.length === 0) return '';
+    
+    return polyline.map((point, i) => {
+      const scaledX = (Number(point.x) || 0) + x;
+      const scaledY = -(Number(point.y) || 0) + y; // Flip Y coordinate for SVG
+      const command = i === 0 ? 'M' : 'L';
+      return `${command} ${scaledX.toFixed(2)} ${scaledY.toFixed(2)}`;
+    }).join(' ');
+  }).filter(Boolean).join(' ');
+}
+```
+
+### Rendering Text to SVG
+
+```typescript
+interface SvgOptions {
+  width?: number;
+  height?: number;
+  strokeWidth?: string;
+  strokeColor?: string;
+  isAutoFit?: boolean;
+}
+
+function renderTextToSvg(
+  font: ShxFont, 
+  text: string, 
+  size: number, 
+  options: SvgOptions = {}
+): SVGElement {
+  const {
+    width = 1000,
+    height = 1000,
+    strokeWidth = '0.1%',
+    strokeColor = 'black',
+    isAutoFit = false
+  } = options;
+
   // Create SVG element
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', options.width.toString());
-  svg.setAttribute('height', options.height.toString());
-  svg.setAttribute('viewBox', `0 0 ${options.width} ${options.height}`);
+  svg.setAttribute('width', width.toString());
+  svg.setAttribute('height', height.toString());
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-  let x = 0;
-  
+  const padding = size;
+  let currentX = padding;
+  let maxHeight = 0;
+
+  // Process each character
   for (const char of text) {
-    const shape = font.getCharShape(char.charCodeAt(0), size);
+    const charCode = char.charCodeAt(0);
+    const shape = font.getCharShape(charCode, size);
+    
     if (shape) {
-      // Create a group for the character
       const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       
-      if (options.isAutoFit) {
-        // When auto-fit is enabled, we need to handle positioning manually
+      if (isAutoFit) {
+        // Auto-fit positioning
         const bbox = shape.bbox;
         const padding = 0.2; // 20% padding
         const width = bbox.maxX - bbox.minX;
         const height = bbox.maxY - bbox.minY;
-        const minX = bbox.minX - width * padding;
-        const maxX = bbox.maxX + width * padding;
-        const minY = bbox.minY - height * padding;
-        const maxY = bbox.maxY + height * padding;
-        
-        // Position the group to center the character
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        group.setAttribute('transform', `translate(${x - centerX}, ${-centerY})`);
+        const centerX = (bbox.minX + bbox.maxX) / 2;
+        const centerY = (bbox.minY + bbox.maxY) / 2;
+        group.setAttribute('transform', `translate(${currentX - centerX}, ${-centerY})`);
       } else {
-        // Use fixed positioning for non-auto-fit mode
-        group.setAttribute('transform', `translate(${x + options.width / 2}, ${options.height / 2})`);
+        // Fixed positioning
+        group.setAttribute('transform', `translate(${currentX + width / 2}, ${height / 2})`);
+      }
+
+      // Create path for the character
+      const pathData = shapeToSvgPath(shape);
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathData);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', strokeColor);
+      path.setAttribute('stroke-width', strokeWidth);
+      
+      group.appendChild(path);
+      svg.appendChild(group);
+
+      // Update position for next character
+      if (shape.lastPoint) {
+        currentX += shape.lastPoint.x + size * 0.5;
+      } else {
+        currentX += size;
       }
       
-      // Use the shape's toSVG method with the provided options
-      const charSvg = shape.toSVG({
-        strokeWidth: options.strokeWidth,
-        strokeColor: options.strokeColor,
-        isAutoFit: options.isAutoFit
-      });
-      
-      // Move all paths from charSvg to the group
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = charSvg;
-      const paths = tempDiv.querySelectorAll('path');
-      paths.forEach(path => group.appendChild(path));
-      
-      svg.appendChild(group);
-      x += shape.lastPoint?.x || 0; // Move x position for next character
+      maxHeight = Math.max(maxHeight, size);
     }
   }
-  
+
   return svg;
 }
 
-// Example usage with default options (fixed viewBox):
-const font = new ShxFont(fontFileData);
-const svgElement1 = renderTextToSvg(font, "Hello", 12);
-document.body.appendChild(svgElement1);
-
-// Example usage with auto-fit enabled:
-const svgElement2 = renderTextToSvg(font, "Hello", 12, {
-  width: 1000,
-  height: 1000,
-  strokeWidth: '0.1%',
-  strokeColor: 'black',
-  isAutoFit: true
-});
-document.body.appendChild(svgElement2);
+// Example usage:
+async function main() {
+  try {
+    const font = await loadFont('path/to/your/font.shx');
+    
+    // Example 1: Basic rendering
+    const svgElement1 = renderTextToSvg(font, "Hello", 12);
+    document.body.appendChild(svgElement1);
+    
+    // Example 2: Auto-fit rendering with custom options
+    const svgElement2 = renderTextToSvg(font, "Hello", 12, {
+      width: 1000,
+      height: 1000,
+      strokeWidth: '0.1%',
+      strokeColor: 'black',
+      isAutoFit: true
+    });
+    document.body.appendChild(svgElement2);
+    
+    // Clean up resources when done
+    font.release();
+  } catch (error) {
+    console.error('Error:', error instanceof Error ? error.message : 'An unknown error occurred');
+  }
+}
 ```
 
 ## Contributing

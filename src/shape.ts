@@ -54,7 +54,7 @@ export class ShxShape {
       isAutoFit?: boolean;
     } = {}
   ): string {
-    const { strokeWidth = '0.1%', strokeColor = 'black', isAutoFit = false } = options;
+    const { strokeWidth = '0.5%', strokeColor = 'black', isAutoFit = false } = options;
 
     let viewBox: string;
     let paths: string;
@@ -86,16 +86,14 @@ export class ShxShape {
       // Set viewBox to match shape bounds
       viewBox = `${minX} ${-maxY} ${maxX - minX} ${maxY - minY}`;
     } else {
-      // Use fixed viewBox and scaled coordinates (original logic)
-      const scale = 40;
-      viewBox = '0 0 1000 1000';
+      // Use fixed viewBox
+      viewBox = '0 0 20 20';
       paths = this.polylines
         .map(polyline => {
           let d = '';
           polyline.forEach((point, index) => {
-            // Scale and center the points
-            const x = point.x * scale + 500;
-            const y = -point.y * scale + 500; // Flip Y coordinates for SVG coordinate system
+            const x = point.x + 5;
+            const y = -point.y + 15; // Flip Y coordinates for SVG coordinate system
             d += index === 0 ? `M ${x} ${y} ` : `L ${x} ${y} `;
           });
           return `<path d="${d}" stroke="${strokeColor}" stroke-width="${strokeWidth}" fill="none"/>`;
