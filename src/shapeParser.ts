@@ -2,20 +2,10 @@ import { Point } from './point';
 import { ShxFontData, ShxFontType } from './fontData';
 import { Arc } from './arc';
 import { ShxFileReader } from './fileReader';
+import { ShxShape } from './shape';
 
 const CIRCLE_SPAN = Math.PI / 18;
 const DEFAULT_FONT_SIZE = 12;
-
-/**
- * Represents a shape defined by a collection of polylines and an optional last point.
- * Used to describe the geometry of a character in the SHX font.
- */
-export interface ShxShape {
-  /** The last point in the shape's geometry, if any */
-  readonly lastPoint?: Point;
-  /** Array of polylines, where each polyline is an array of points */
-  readonly polylines: Point[][];
-}
 
 /**
  * Parses SHX font data into shapes on demand. To improve performance, the shape is parsed on demand by
@@ -68,10 +58,10 @@ export class ShxShapeParser {
     if (this.shapeData.has(code)) {
       const scale = size / DEFAULT_FONT_SIZE;
       const shape = this.shapeData.get(code) as ShxShape;
-      textShape = {
-        lastPoint: shape.lastPoint?.clone().multiply(scale),
-        polylines: shape.polylines.map(line => line.map(point => point.clone().multiply(scale))),
-      };
+      textShape = new ShxShape(
+        shape.lastPoint?.clone().multiply(scale),
+        shape.polylines.map(line => line.map(point => point.clone().multiply(scale)))
+      );
     }
     return textShape;
   }
@@ -108,10 +98,7 @@ export class ShxShapeParser {
       }
     }
 
-    return {
-      lastPoint: state.currentPoint,
-      polylines: state.polylines,
-    };
+    return new ShxShape(state.currentPoint, state.polylines);
   }
 
   /**
@@ -664,19 +651,19 @@ export class ShxShapeParser {
     const shape = this.parse(code, height);
     if (shape) {
       if (width === height) {
-        return {
-          lastPoint: shape.lastPoint?.clone().add(translate),
-          polylines: shape.polylines.map(line => line.map(point => point.clone().add(translate))),
-        };
+        return new ShxShape(
+          shape.lastPoint?.clone().add(translate),
+          shape.polylines.map(line => line.map(point => point.clone().add(translate)))
+        );
       } else {
         const lastPoint = shape.lastPoint?.clone();
         if (lastPoint) lastPoint.x *= width / height;
         const polylines = shape.polylines.map(line => line.map(point => point.clone()));
         polylines.forEach(line => line.forEach(point => (point.x *= width / height)));
-        return {
-          lastPoint: lastPoint?.add(translate),
-          polylines: polylines.map(line => line.map(point => point.add(translate))),
-        };
+        return new ShxShape(
+          lastPoint?.add(translate),
+          polylines.map(line => line.map(point => point.add(translate)))
+        );
       }
     }
     return undefined;

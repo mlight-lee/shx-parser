@@ -280,8 +280,6 @@
                 this.modalShape = document.getElementById('modalShape');
                 this.modalCharacterInfo = document.getElementById('modalCharacterInfo');
                 this.font = null;
-                this.scale = 40;
-                this.modalScale = 100; // Larger scale for modal view
                 this.fontLibraryUrl = 'https://raw.githubusercontent.com/mlight-lee/cad-data/main/fonts/fonts.json';
                 this.fontBaseUrl = 'https://raw.githubusercontent.com/mlight-lee/cad-data/main/fonts/';
                 this.allCharacterCells = new Map(); // Store all character cells
@@ -419,37 +417,17 @@
                 document.getElementById('charCount').textContent = Object.keys(content.data).length;
             }
 
-            createSvgElement(width, height, viewBox) {
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('width', width.toString());
-                svg.setAttribute('height', height.toString());
-                svg.setAttribute('viewBox', viewBox);
-                return svg;
-            }
-
             createCharacterCell(code, shape) {
                 const cell = document.createElement('div');
                 cell.className = 'character-cell';
 
-                const svg = this.createSvgElement(100, 100, '0 0 1000 1000');
+                const svgString = shape.toSVG();
                 
-                // Create a path for each polyline
-                shape.polylines.forEach(polyline => {
-                    let d = '';
-                    polyline.forEach((point, index) => {
-                        const x = (point.x * this.scale) + 500;
-                        const y = (-point.y * this.scale) + 500;
-                        d += index === 0 ? `M ${x} ${y} ` : `L ${x} ${y} `;
-                    });
-
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', d);
-                    path.setAttribute('stroke', 'black');
-                    path.setAttribute('stroke-width', '2');
-                    path.setAttribute('fill', 'none');
-                    svg.appendChild(path);
-                });
-
+                // Create a temporary div to parse the SVG string
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = svgString;
+                const svg = tempDiv.querySelector('svg');
+                
                 cell.appendChild(svg);
 
                 const info = document.createElement('div');
@@ -556,67 +534,17 @@
 
             showModal(code, shape) {
                 this.modalShape.innerHTML = '';
-                
-                // Calculate the bounds of the shape
-                let minX = Infinity, maxX = -Infinity;
-                let minY = Infinity, maxY = -Infinity;
-                
-                shape.polylines.forEach(polyline => {
-                    polyline.forEach(point => {
-                        minX = Math.min(minX, point.x);
-                        maxX = Math.max(maxX, point.x);
-                        minY = Math.min(minY, point.y);
-                        maxY = Math.max(maxY, point.y);
-                    });
+
+                // Get SVG string with auto-fit enabled
+                const svgString = shape.toSVG({
+                    isAutoFit: true
                 });
                 
-                // Add padding to the bounds
-                const padding = 0.2; // 20% padding
-                const width = maxX - minX;
-                const height = maxY - minY;
-                minX -= width * padding;
-                maxX += width * padding;
-                minY -= height * padding;
-                maxY += height * padding;
+                // Create a temporary div to parse the SVG string
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = svgString;
+                const svg = tempDiv.querySelector('svg');
                 
-                // Calculate the aspect ratio to maintain shape proportions
-                const shapeWidth = maxX - minX;
-                const shapeHeight = maxY - minY;
-                const aspectRatio = shapeWidth / shapeHeight;
-                
-                // Create SVG with proper viewBox
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('width', '500');
-                svg.setAttribute('height', '500');
-                
-                // Set viewBox to match shape bounds
-                const viewBoxWidth = shapeWidth;
-                const viewBoxHeight = shapeHeight;
-                const viewBoxX = minX;
-                const viewBoxY = -maxY; // Flip Y coordinates for SVG coordinate system
-                svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
-                
-                // Add preserveAspectRatio attribute to ensure proper centering
-                svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-                
-                // Create a path for each polyline
-                shape.polylines.forEach(polyline => {
-                    let d = '';
-                    polyline.forEach((point, index) => {
-                        // No need to add offsets since we're using viewBox
-                        const x = point.x;
-                        const y = -point.y; // Flip Y coordinates for SVG coordinate system
-                        d += index === 0 ? `M ${x} ${y} ` : `L ${x} ${y} `;
-                    });
-
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', d);
-                    path.setAttribute('stroke', 'black');
-                    path.setAttribute('stroke-width', viewBoxWidth * 0.005); // Make stroke width relative to shape size
-                    path.setAttribute('fill', 'none');
-                    svg.appendChild(path);
-                });
-
                 this.modalShape.appendChild(svg);
                 
                 // Update modal character info
