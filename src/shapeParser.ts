@@ -651,10 +651,7 @@ export class ShxShapeParser {
     const shape = this.parse(code, height);
     if (shape) {
       if (width === height) {
-        return new ShxShape(
-          shape.lastPoint?.clone().add(translate),
-          shape.polylines.map(line => line.map(point => point.clone().add(translate)))
-        );
+        return shape.offset(translate);
       } else {
         const lastPoint = shape.lastPoint?.clone();
         if (lastPoint) lastPoint.x *= width / height;

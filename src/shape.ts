@@ -43,6 +43,25 @@ export class ShxShape {
   }
 
   /**
+   * Offset the shape by a point
+   * @param p The point to offset the shape by
+   * @param isNewInstance Whether to return a new instance of the shape or modify the current instance
+   * @returns The offset shape
+   */
+  offset(p: Point, isNewInstance = true): ShxShape {
+    if (isNewInstance) {
+      return new ShxShape(
+        this.lastPoint?.clone().add(p),
+        this.polylines.map(polyline => polyline.map(point => point.clone().add(p)))
+      );
+    } else {
+      this.lastPoint?.add(p);
+      this.polylines.forEach(polyline => polyline.forEach(point => point.add(p)));
+      return this;
+    }
+  }
+
+  /**
    * Converts the shape to an SVG string
    * @param options SVG rendering options
    * @returns SVG string
