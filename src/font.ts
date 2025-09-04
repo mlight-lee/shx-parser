@@ -44,7 +44,7 @@ export class ShxFont {
    */
   hasChar(code: number): boolean {
     const codes = this.fontData.content.data;
-    return codes[code] == null
+    return codes[code] !== undefined
   }
 
   /**
