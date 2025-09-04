@@ -38,6 +38,16 @@ export class ShxFont {
   }
 
   /**
+   * Return true if this font contains glyph of the specified character. Otherwise, return false.
+   * @param char - The character to check
+   * @returns True if this font contains glyph of the specified character. Otherwise, return false.
+   */
+  hasChar(code: number): boolean {
+    const codes = this.fontData.content.data;
+    return codes[code] == null
+  }
+
+  /**
    * Gets the shape data for a specific character at a given size.
    * @param code - The character code to get the shape for
    * @param size - The desired size of the character in drawing units
