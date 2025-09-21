@@ -326,7 +326,7 @@ export class ShxShapeParser {
         break;
       case ShxFontType.UNIFONT:
         i++;
-        subCode = data[i++] | (data[i++] << 8);
+        subCode = data[i++] << 8 | data[i++];
         break;
     }
 

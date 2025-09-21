@@ -40,8 +40,19 @@ class ShxShapeContentParser implements ShxContentParser {
         try {
           const bytes = reader.readBytes(item.length);
           if (bytes.length === item.length) {
-            // Only add if we got all the bytes
-            data[item.code] = bytes;
+            // Parse and skip the null-terminated label at the beginning of the data
+            const nulIndex = bytes.indexOf(0x00);
+            let startOfBytecode = 0;
+            
+            // Handle the null-terminated label header
+            if (nulIndex >= 0 && nulIndex < bytes.length) {
+              startOfBytecode = nulIndex + 1;
+            }
+            
+            // Only add if we got all the bytes and there's actual bytecode data
+            if (startOfBytecode < bytes.length) {
+              data[item.code] = bytes.subarray(startOfBytecode);
+            }
           }
         } catch {
           console.warn(`Failed to read shape data for code ${item.code}`);
@@ -264,7 +275,19 @@ class ShxUnifontContentParser implements ShxContentParser {
           if (length > 0) {
             const bytes = reader.readBytes(length);
             if (bytes.length === length) {
-              data[code] = bytes;
+              // Parse and skip the null-terminated label at the beginning of the data
+              const nulIndex = bytes.indexOf(0x00);
+              let startOfBytecode = 0;
+              
+              // Handle the null-terminated label header
+              if (nulIndex >= 0 && nulIndex < bytes.length) {
+                startOfBytecode = nulIndex + 1;
+              }
+              
+              // Only add if we got all the bytes and there's actual bytecode data
+              if (startOfBytecode < bytes.length) {
+                data[code] = bytes.subarray(startOfBytecode);
+              }
             }
           }
         } catch {
