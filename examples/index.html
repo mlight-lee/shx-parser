@@ -35,14 +35,25 @@
             border-radius: 4px;
             cursor: pointer;
             transition: transform 0.1s ease-in-out;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
         }
         .character-cell:hover {
             transform: scale(1.02);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
-        .character-cell svg {
-            max-width: 100%;
-            height: auto;
+        .character-svg {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0; /* allow flex child to shrink */
+        }
+
+        .character-svg svg {
+            width: 100%;
+            height: 100%;
         }
         .character-info {
             font-size: 12px;
@@ -421,14 +432,20 @@
                 const cell = document.createElement('div');
                 cell.className = 'character-cell';
 
-                const svgString = shape.toSVG();
+                const svgString = shape.toSVG({
+                    isAutoFit: true
+                });
                 
                 // Create a temporary div to parse the SVG string
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = svgString;
                 const svg = tempDiv.querySelector('svg');
                 
-                cell.appendChild(svg);
+                // Wrap SVG into a fixed-height flex container for consistent cell height
+                const svgWrap = document.createElement('div');
+                svgWrap.className = 'character-svg';
+                svgWrap.appendChild(svg);
+                cell.appendChild(svgWrap);
 
                 const info = document.createElement('div');
                 info.className = 'character-info';
